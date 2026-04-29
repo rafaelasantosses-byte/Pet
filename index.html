@@ -599,20 +599,28 @@ function renderNewSale() {
             <input id="sale-client-name" class="input" placeholder="Nome do cliente"/>
           </div>
           <div class="form-group">
-            <label>Pagamento</label>
-            <div class="pay-methods">
-              ${['dinheiro','pix','débito','crédito'].map(m=>`<button class="pay-btn${m==='dinheiro'?' active':''}" data-method="${m}" onclick="setPayMethod('${m}')">${m}</button>`).join('')}
+                      <div class="form-group">
+            <label style="color: #D4AF37; font-weight: bold; font-size: 12px;">FORMA DE PAGAMENTO</label>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px;">
+              <button type="button" onclick="setPayMethod('dinheiro')" id="btn-pay-dinheiro" class="pay-btn active" style="padding: 12px; border-radius: 8px; background: #D4AF37; color: #000; border: none; font-weight: bold; font-size: 11px;">💵 Dinheiro</button>
+              <button type="button" onclick="setPayMethod('pix')" id="btn-pay-pix" class="pay-btn" style="padding: 12px; border-radius: 8px; background: #111; color: #fff; border: 1px solid #333; font-size: 11px;">💎 Pix</button>
+              <button type="button" onclick="setPayMethod('debito')" id="btn-pay-debito" class="pay-btn" style="padding: 12px; border-radius: 8px; background: #111; color: #fff; border: 1px solid #333; font-size: 11px;">💳 Débito</button>
+              <button type="button" onclick="setPayMethod('credito')" id="btn-pay-credito" class="pay-btn" style="padding: 12px; border-radius: 8px; background: #111; color: #fff; border: 1px solid #333; font-size: 11px;">💳 Crédito</button>
             </div>
           </div>
+
           <div id="fiado-section" style="display:none" class="form-group">
-            <button id="fiado-btn" class="btn-fiado" onclick="toggleFiado()">⚠️ Lançar no Fiado</button>
+            <button id="fiado-btn" class="btn-fiado" onclick="toggleFiado()" style="width: 100%; background: #ff3b5c1a; color: #ff3b5c; border: 1px solid #ff3b5c; padding: 10px; border-radius: 8px;">⚠️ Lançar no Fiado</button>
           </div>
-          <div class="form-group">
+
+          <div class="form-group" style="margin-top: 10px;">
             <label>Observação</label>
-            <input id="sale-note" class="input" placeholder="Anotação da venda..."/>
+            <input id="sale-note" class="input" placeholder="Anotação da venda..." style="width: 100%; background: #0a1628; color: #fff; border: 1px solid #333; padding: 10px; border-radius: 8px;"/>
           </div>
-          <button id="finalize-btn" class="btn-success btn-full" onclick="finalizeSale()">✅ Finalizar Venda</button>
-        </div>
+
+          <button id="finalize-btn" class="btn-success btn-full" onclick="finalizeSale()" style="width: 100%; padding: 16px; background: #28a745; color: #fff; border: none; border-radius: 12px; font-weight: bold; font-size: 16px; margin-top: 15px;">
+            ✅ FINALIZAR VENDA
+          </button>
       </div>
     </div>
   </div>`;
@@ -620,7 +628,28 @@ function renderNewSale() {
 
 // produto selecionado aguardando confirmação
 let _pendingProductId = null;
+window.setPayMethod = (method) => {
+  // Define o método globalmente para a venda
+  window.currentPayMethod = method;
 
+  // Limpa o estilo de todos os botões de pagamento
+  document.querySelectorAll('.pay-btn').forEach(btn => {
+    btn.style.background = '#111';
+    btn.style.color = '#fff';
+    btn.style.borderColor = '#333';
+    btn.classList.remove('active');
+  });
+
+  // Aplica o estilo de "selecionado" (Dourado) no botão clicado
+  const selectedBtn = document.getElementById('btn-pay-' + method);
+  if (selectedBtn) {
+    selectedBtn.style.background = '#D4AF37';
+    selectedBtn.style.color = '#000';
+    selectedBtn.style.borderColor = '#D4AF37';
+    selectedBtn.classList.add('active');
+  }
+};
+     
 window.clearSelectedProduct = () => {
   _pendingProductId = null;
   const bar = $('selected-product-bar');
