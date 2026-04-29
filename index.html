@@ -586,41 +586,37 @@ function renderNewSale() {
           <div id="cart-items"><p class="muted" style="font-size:13px">Clique nos produtos para adicionar</p></div>
           <div id="cart-total"></div>
         </div>
-        <div class="card" style="margin-top:14px">
+                <div class="card" style="margin-top:14px">
           <div class="form-group">
-            <label>Cliente</label>
-            <select id="sale-client" class="input" onchange="onClientSelect(this.value)">
-              <option value="">Venda Avulsa</option>
-              ${appData.clients.map(c=>`<option value="${c.id}">${c.name}</option>`).join('')}
-            </select>
+            <label style="color: #D4AF37; font-weight: bold; font-size: 12px;">NOME DO CLIENTE / REGISTRO</label>
+            <input id="sale-client-name" class="input" placeholder="Nome para venda ou fiado..." style="width: 100%; margin-top: 5px; background: #0a1628; border: 1px solid #333; color: #fff; padding: 12px; border-radius: 8px; font-size: 14px;"/>
           </div>
+
           <div class="form-group">
-            <label>Ou nome avulso</label>
-            <input id="sale-client-name" class="input" placeholder="Nome do cliente"/>
-          </div>
-          <div class="form-group">
-                      <div class="form-group">
-            <label style="color: #D4AF37; font-weight: bold; font-size: 12px;">FORMA DE PAGAMENTO</label>
+            <label style="color: #D4AF37; font-weight: bold; font-size: 12px; margin-top: 10px; display: block;">FORMA DE PAGAMENTO</label>
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px;">
-              <button type="button" onclick="setPayMethod('dinheiro')" id="btn-pay-dinheiro" class="pay-btn active" style="padding: 12px; border-radius: 8px; background: #D4AF37; color: #000; border: none; font-weight: bold; font-size: 11px;">💵 Dinheiro</button>
-              <button type="button" onclick="setPayMethod('pix')" id="btn-pay-pix" class="pay-btn" style="padding: 12px; border-radius: 8px; background: #111; color: #fff; border: 1px solid #333; font-size: 11px;">💎 Pix</button>
-              <button type="button" onclick="setPayMethod('debito')" id="btn-pay-debito" class="pay-btn" style="padding: 12px; border-radius: 8px; background: #111; color: #fff; border: 1px solid #333; font-size: 11px;">💳 Débito</button>
-              <button type="button" onclick="setPayMethod('credito')" id="btn-pay-credito" class="pay-btn" style="padding: 12px; border-radius: 8px; background: #111; color: #fff; border: 1px solid #333; font-size: 11px;">💳 Crédito</button>
+              <button type="button" onclick="setPayMethod('dinheiro')" id="btn-pay-dinheiro" class="pay-btn active" style="padding: 12px; border-radius: 8px; background: #D4AF37; color: #000; border: none; font-weight: bold; font-size: 10px;">💵 DINHEIRO</button>
+              <button type="button" onclick="setPayMethod('debito')" id="btn-pay-debito" class="pay-btn" style="padding: 12px; border-radius: 8px; background: #111; color: #fff; border: 1px solid #333; font-size: 10px;">💳 DÉBITO</button>
+              <button type="button" onclick="setPayMethod('credito')" id="btn-pay-credito" class="pay-btn" style="padding: 12px; border-radius: 8px; background: #111; color: #fff; border: 1px solid #333; font-size: 10px;">💳 CRÉDITO</button>
+              <button type="button" onclick="setPayMethod('fiado')" id="btn-pay-fiado" class="pay-btn" style="padding: 12px; border-radius: 8px; background: #111; color: #ff3b5c; border: 1px solid #ff3b5c; font-size: 10px; font-weight: bold;">⚠️ FIADO</button>
+              <button type="button" onclick="setPayMethod('pix_qr')" id="btn-pay-pix_qr" class="pay-btn" style="padding: 12px; border-radius: 8px; background: #111; color: #fff; border: 1px solid #333; font-size: 10px;">🖼️ PIX QR</button>
+              <button type="button" onclick="setPayMethod('pix_transf')" id="btn-pay-pix_transf" class="pay-btn" style="padding: 12px; border-radius: 8px; background: #111; color: #fff; border: 1px solid #333; font-size: 10px;">📲 PIX TRANSF.</button>
             </div>
           </div>
 
-          <div id="fiado-section" style="display:none" class="form-group">
-            <button id="fiado-btn" class="btn-fiado" onclick="toggleFiado()" style="width: 100%; background: #ff3b5c1a; color: #ff3b5c; border: 1px solid #ff3b5c; padding: 10px; border-radius: 8px;">⚠️ Lançar no Fiado</button>
-          </div>
-
           <div class="form-group" style="margin-top: 10px;">
-            <label>Observação</label>
-            <input id="sale-note" class="input" placeholder="Anotação da venda..." style="width: 100%; background: #0a1628; color: #fff; border: 1px solid #333; padding: 10px; border-radius: 8px;"/>
+            <label style="font-size: 11px; color: #7ba7d4;">OBSERVAÇÃO</label>
+            <input id="sale-note" class="input" placeholder="Anotação opcional..." style="width: 100%; background: #0a1628; border: 1px solid #333; color: #fff; padding: 10px; border-radius: 8px;"/>
           </div>
 
-          <button id="finalize-btn" class="btn-success btn-full" onclick="finalizeSale()" style="width: 100%; padding: 16px; background: #28a745; color: #fff; border: none; border-radius: 12px; font-weight: bold; font-size: 16px; margin-top: 15px;">
+          <button id="finalize-btn" class="btn-success btn-full" onclick="finalizeSale()" style="width: 100%; padding: 18px; background: #28a745; color: #fff; border: none; border-radius: 12px; font-weight: bold; font-size: 16px; margin-top: 15px;">
             ✅ FINALIZAR VENDA
           </button>
+        </div>
+      </div>
+    </div>
+  </div>`;
+
       </div>
     </div>
   </div>`;
