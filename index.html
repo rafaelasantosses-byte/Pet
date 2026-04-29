@@ -1,0 +1,2456 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+
+<!-- ═══════════════════════════════════════════════════
+     PWA — Pet Chique (Cloudflare Pages Ready)
+     Cor tema: #D4AF37 (dourado) | Fundo: #000000 (preto)
+     Ícone: logo.png (coloque na mesma pasta do HTML)
+════════════════════════════════════════════════════ -->
+
+<!-- Android / Chrome -->
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="application-name" content="Pet Chique">
+<meta name="theme-color" content="#D4AF37">
+<meta name="msapplication-TileColor" content="#000000">
+
+<!-- iOS / Safari -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Pet Chique">
+<link rel="apple-touch-icon" href="logo.png">
+
+<!-- SEO -->
+<meta name="description" content="Sistema de Gestão — Pet Chique">
+
+<!-- Manifest PWA: preto/dourado, standalone, logo.png -->
+<link rel="manifest" href="data:application/json;base64,eyJuYW1lIjogIlBldCBDaGlxdWUgU2lzdGVtYSIsICJzaG9ydF9uYW1lIjogIlBldCBDaGlxdWUiLCAiZGVzY3JpcHRpb24iOiAiU2lzdGVtYSBkZSBHZXN0YW8gUGV0IENoaXF1ZSIsICJzdGFydF91cmwiOiAiLi8iLCAic2NvcGUiOiAiLi8iLCAiZGlzcGxheSI6ICJzdGFuZGFsb25lIiwgIm9yaWVudGF0aW9uIjogInBvcnRyYWl0IiwgImJhY2tncm91bmRfY29sb3IiOiAiIzAwMDAwMCIsICJ0aGVtZV9jb2xvciI6ICIjRDRBRjM3IiwgImljb25zIjogW3sic3JjIjogImxvZ28ucG5nIiwgInNpemVzIjogIjE5MngxOTIiLCAidHlwZSI6ICJpbWFnZS9wbmciLCAicHVycG9zZSI6ICJhbnkgbWFza2FibGUifSwgeyJzcmMiOiAibG9nby5wbmciLCAic2l6ZXMiOiAiNTEyeDUxMiIsICJ0eXBlIjogImltYWdlL3BuZyIsICJwdXJwb3NlIjogImFueSBtYXNrYWJsZSJ9XX0=">
+<title>PET CHIQUE — Sistema de Gestão</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script type="module">
+// ── FIREBASE CONFIG (suas chaves) ──────────────────────────────────────────
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getFirestore, collection, doc, addDoc, setDoc, getDoc, getDocs, updateDoc, deleteDoc, onSnapshot, query, orderBy, serverTimestamp, where, enableIndexedDbPersistence, increment } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDZtnVd8_HJvDTSRLTflRRByQ60IgMr-Aw",
+  authDomain: "pet-chique.firebaseapp.com",
+  projectId: "pet-chique",
+  storageBucket: "pet-chique.firebasestorage.app",
+  messagingSenderId: "956024880760",
+  appId: "1:956024880760:web:49540431614fd79d65778d",
+  measurementId: "G-3QTFTTZCML"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+// ── OFFLINE PERSISTENCE (PWA) ─────────────────────────────────────────────
+enableIndexedDbPersistence(db).catch(err => {
+  if (err.code === 'failed-precondition') {
+    console.warn('Persistência offline: múltiplas abas abertas.');
+  } else if (err.code === 'unimplemented') {
+    console.warn('Persistência offline não suportada neste navegador.');
+  }
+});
+
+// ── SERVICE WORKER — Cloudflare Pages Ready ───────────────────────────────
+// Embutido como Blob (não precisa de arquivo sw.js separado)
+if ('serviceWorker' in navigator) {
+  const swCode = `
+const CACHE = 'pet-chique-v3';
+const ASSETS = [
+  './',
+  './logo.png',
+  'https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&display=swap'
+];
+
+// Instalação: cacheia arquivos essenciais
+self.addEventListener('install', e => {
+  e.waitUntil(
+    caches.open(CACHE)
+      .then(c => c.addAll(ASSETS).catch(() => {}))
+      .then(() => self.skipWaiting())
+  );
+});
+
+// Ativação: remove caches antigos
+self.addEventListener('activate', e => {
+  e.waitUntil(
+    caches.keys()
+      .then(keys => Promise.all(
+        keys.filter(k => k !== CACHE).map(k => caches.delete(k))
+      ))
+      .then(() => self.clients.claim())
+  );
+});
+
+// Fetch: rede primeiro, cache como fallback offline
+// NÃO intercepta Firebase, Firestore nem googleapis
+self.addEventListener('fetch', e => {
+  const url = e.request.url;
+  if (
+    url.includes('firestore.googleapis.com') ||
+    url.includes('firebase') ||
+    url.includes('identitytoolkit') ||
+    url.includes('googleapis.com/identitytoolkit') ||
+    url.includes('securetoken.googleapis.com') ||
+    e.request.method !== 'GET'
+  ) return;
+
+  e.respondWith(
+    fetch(e.request)
+      .then(res => {
+        if (res && res.status === 200) {
+          const clone = res.clone();
+          caches.open(CACHE).then(c => c.put(e.request, clone));
+        }
+        return res;
+      })
+      .catch(() => caches.match(e.request))
+  );
+});`;
+
+  const blob = new Blob([swCode], { type: 'application/javascript' });
+  const swUrl = URL.createObjectURL(blob);
+  navigator.serviceWorker.register(swUrl)
+    .then(() => console.log('✅ Pet Chique PWA: instalável'))
+    .catch(() => {});
+}
+
+// ── STATE ──────────────────────────────────────────────────────────────────
+let currentUser = null;
+let currentUserData = null;
+let activeTab = 'dashboard';
+let unsubscribers = [];
+let appData = { products: [], clients: [], sales: [], fiados: [], cashSessions: [], users: [], logs: [] };
+
+// ── UTILS ──────────────────────────────────────────────────────────────────
+const fmt = v => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0);
+const fmtDate = d => { if (!d) return '—'; const dt = d.toDate ? d.toDate() : new Date(d); return dt.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }); };
+const genId = () => Date.now().toString(36) + Math.random().toString(36).substr(2);
+const $ = id => document.getElementById(id);
+const toast = (msg, type = 'success') => {
+  const el = document.createElement('div');
+  el.className = `toast toast-${type}`;
+  el.innerHTML = `<span>${type === 'error' ? '✕' : type === 'warning' ? '⚠' : '✓'}</span> ${msg}`;
+  document.getElementById('toasts').appendChild(el);
+  setTimeout(() => el.remove(), 3500);
+};
+
+// ── AUDITORIA / LOG ────────────────────────────────────────────────────────
+async function auditLog(acao, valAntigo, valNovo, extra = {}) {
+  try {
+    await addDoc(collection(db, 'logs'), {
+      quem: currentUserData?.name || '?',
+      acao,
+      hora: serverTimestamp(),
+      valAntigo,
+      valNovo,
+      ...extra
+    });
+  } catch(e) { console.warn('Log error:', e); }
+}
+
+// ── BOOTSTRAP DATA ─────────────────────────────────────────────────────────
+async function bootstrapOwner() {
+  try {
+    const usersSnap = await getDocs(collection(db, 'users'));
+    if (usersSnap.empty) {
+      // Create owner account
+      const cred = await createUserWithEmailAndPassword(auth, 'adriano@petchique.com', 'admin123');
+      await setDoc(doc(db, 'users', cred.user.uid), {
+        name: 'Adriano Sampaio', email: 'adriano@petchique.com',
+        role: 'owner', createdAt: serverTimestamp()
+      });
+      // Create employee account
+      const cred2 = await createUserWithEmailAndPassword(auth, 'funcionario@petchique.com', 'user123');
+      await setDoc(doc(db, 'users', cred2.user.uid), {
+        name: 'Funcionário', email: 'funcionario@petchique.com',
+        role: 'user', createdAt: serverTimestamp()
+      });
+      // Seed products
+      const products = [
+        { name: 'Ração Premium Cão 15kg', category: 'Ração', price: 89.90, stock: 45, unit: 'sc' },
+        { name: 'Ração Gato Adulto 3kg', category: 'Ração', price: 34.50, stock: 30, unit: 'kg' },
+        { name: 'Sachê Whiskas Atum', category: 'Ração', price: 3.50, stock: 120, unit: 'un' },
+        { name: 'Antipulgas Frontline', category: 'Remédio', price: 45.00, stock: 20, unit: 'un' },
+        { name: 'Vermífugo Drontal', category: 'Remédio', price: 28.00, stock: 15, unit: 'un' },
+        { name: 'Cimento 50kg', category: 'Construção', price: 32.00, stock: 80, unit: 'sc' },
+        { name: 'Tijolo 6 furos', category: 'Construção', price: 0.90, stock: 2000, unit: 'un' },
+      ];
+      for (const p of products) await addDoc(collection(db, 'products'), { ...p, createdAt: serverTimestamp() });
+      toast('Sistema iniciado! Use adriano@petchique.com / admin123', 'success');
+      await signOut(auth);
+      renderLogin();
+    }
+  } catch (e) { console.log('Bootstrap:', e.message); }
+}
+
+// ── AUTH ───────────────────────────────────────────────────────────────────
+onAuthStateChanged(auth, async user => {
+  if (user) {
+    currentUser = user;
+    const snap = await getDoc(doc(db, 'users', user.uid));
+    if (snap.exists()) {
+      currentUserData = { uid: user.uid, ...snap.data() };
+      startListeners();
+      renderApp();
+    } else {
+      await signOut(auth);
+      renderLogin();
+    }
+  } else {
+    currentUser = null; currentUserData = null;
+    unsubscribers.forEach(u => u());
+    unsubscribers = [];
+    renderLogin();
+  }
+});
+
+function startListeners() {
+  unsubscribers.forEach(u => u());
+  unsubscribers = [];
+  const cols = ['products', 'clients', 'sales', 'fiados', 'cashSessions', 'users', 'logs'];
+  cols.forEach(col => {
+    const unsub = onSnapshot(collection(db, col), snap => {
+      appData[col] = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      if (activeTab) refreshTab();
+    });
+    unsubscribers.push(unsub);
+  });
+}
+
+function refreshTab() {
+  const content = $('main-content');
+  if (!content) return;
+  const tabs = {
+    dashboard: renderDashboard, 'nova-venda': renderNewSale,
+    vendas: renderSales, clientes: renderClients,
+    fiados: renderFiados, produtos: renderProducts,
+    caixa: renderCaixa, relatorios: renderReports, config: renderConfig
+  };
+  if (tabs[activeTab]) content.innerHTML = tabs[activeTab]();
+  bindEvents();
+}
+
+// ── LOGIN ──────────────────────────────────────────────────────────────────
+function renderLogin() {
+  document.body.innerHTML = `
+  <div class="login-bg">
+    <div class="login-card">
+      <div class="login-logo">🐾</div>
+      <h1 class="login-title">PET CHIQUE</h1>
+      <p class="login-sub">Sistema de Gestão</p>
+
+      <div class="login-owner-box">
+        <span class="login-crown">👑</span>
+        <div>
+          <div class="login-owner-name">Adriano Sampaio</div>
+          <div class="login-owner-role">Proprietário</div>
+        </div>
+      </div>
+
+      <div class="login-tabs">
+        <button class="login-tab active" id="tab-dono" onclick="switchLoginTab('dono')">👑 Dono</button>
+        <button class="login-tab" id="tab-func" onclick="switchLoginTab('func')">👤 Funcionário</button>
+      </div>
+
+      <!-- PAINEL DONO -->
+      <div id="panel-dono">
+        <div class="form-group">
+          <label>Usuário</label>
+          <input id="l-email-dono" type="email" class="input" value="adriano@petchique.com" readonly style="opacity:.7;cursor:default"/>
+        </div>
+        <div class="form-group">
+          <label>Senha</label>
+          <input id="l-pass-dono" type="password" placeholder="••••••••" class="input"/>
+        </div>
+        <p id="l-err-dono" class="err-msg"></p>
+        <button id="l-btn-dono" class="btn-primary btn-full" onclick="doLogin('dono')">👑 Entrar como Dono</button>
+      </div>
+
+      <!-- PAINEL FUNCIONÁRIO -->
+      <div id="panel-func" style="display:none">
+        <div class="form-group">
+          <label>Seu Nome</label>
+          <input id="l-name-func" class="input" placeholder="Digite seu nome completo"/>
+        </div>
+        <div class="form-group">
+          <label>Senha</label>
+          <input id="l-pass-func" type="password" placeholder="••••••••" class="input"/>
+        </div>
+        <p id="l-err-func" class="err-msg"></p>
+        <button id="l-btn-func" class="btn-primary btn-full" onclick="doLogin('func')">👤 Entrar como Funcionário</button>
+        <p class="login-hint" style="margin-top:10px">O acesso é feito apenas pelo seu nome cadastrado pelo proprietário.</p>
+      </div>
+
+    </div>
+    <div class="login-footer-legal">© 2026 Desenvolvido por Adricia Rafaela. Licenciado para Pet Chique (Adriano Sampaio). Responsabilidade de dados: Estabelecimento (LGPD)</div>
+    <div id="toasts" class="toasts"></div>
+  </div>`;
+
+  window.switchLoginTab = (tab) => {
+    $('panel-dono').style.display = tab === 'dono' ? 'block' : 'none';
+    $('panel-func').style.display = tab === 'func' ? 'block' : 'none';
+    $('tab-dono').classList.toggle('active', tab === 'dono');
+    $('tab-func').classList.toggle('active', tab === 'func');
+  };
+
+  window.doLogin = async (tab) => {
+    if (tab === 'dono') {
+      const email = $('l-email-dono').value.trim();
+      const pass = $('l-pass-dono').value;
+      const errEl = $('l-err-dono');
+      const btn = $('l-btn-dono');
+      if (!email || !pass) { errEl.textContent = 'Preencha e-mail e senha.'; return; }
+      try {
+        btn.textContent = 'Entrando...';
+        await signInWithEmailAndPassword(auth, email, pass);
+      } catch (e) {
+        errEl.textContent = 'E-mail ou senha incorretos.';
+        btn.textContent = '👑 Entrar como Dono';
+      }
+    } else {
+      // Employee: lookup by name, find their email, then sign in
+      const name = $('l-name-func')?.value?.trim();
+      const pass = $('l-pass-func')?.value;
+      const errEl = $('l-err-func');
+      const btn = $('l-btn-func');
+      if (!name || !pass) { errEl.textContent = 'Preencha seu nome e senha.'; return; }
+      try {
+        btn.textContent = 'Buscando...';
+        // Query users by name
+        const usersSnap = await getDocs(collection(db, 'users'));
+        const userDoc = usersSnap.docs.find(d => {
+          const data = d.data();
+          return data.name?.toLowerCase().trim() === name.toLowerCase() && data.role !== 'owner';
+        });
+        if (!userDoc) { errEl.textContent = 'Nome não encontrado. Verifique com o proprietário.'; btn.textContent = '👤 Entrar como Funcionário'; return; }
+        const email = userDoc.data().email;
+        btn.textContent = 'Entrando...';
+        await signInWithEmailAndPassword(auth, email, pass);
+      } catch (e) {
+        errEl.textContent = 'Senha incorreta ou nome não cadastrado.';
+        btn.textContent = '👤 Entrar como Funcionário';
+      }
+    }
+  };
+
+  // Enter key support
+  const handleEnter = (tab) => (e) => { if (e.key === 'Enter') window.doLogin(tab); };
+  [$('l-pass-dono')].forEach(el => el && (el.onkeydown = handleEnter('dono')));
+  [$('l-name-func'), $('l-pass-func')].forEach(el => el && (el.onkeydown = handleEnter('func')));
+
+  bootstrapOwner();
+}
+
+// ── MAIN APP SHELL ─────────────────────────────────────────────────────────
+function bnavItem(tab, icon, label, badge, dot) {
+  return `<button class="bnav-item${activeTab===tab?' active':''}" data-tab="${tab}">
+    <span class="bnav-icon">${icon}</span>
+    <span>${label}</span>
+    ${badge?`<span class="bnav-badge">${badge}</span>`:''}
+    ${dot?`<span class="bnav-dot ${dot}"></span>`:''}
+  </button>`;
+}
+
+function renderApp() {
+  const isOwner = currentUserData?.role === 'owner';
+  const pendingFiados = appData.fiados.filter(f => !f.paid).length;
+  const openCash = appData.cashSessions.find(c => !c.closed);
+  const userName = currentUserData?.name?.split(' ')[0] || '';
+  document.body.innerHTML = `
+  <div class="app-shell">
+    <nav class="sidebar">
+      <div class="sidebar-top">
+        <div class="brand"><span class="brand-icon">🐾</span><div><div class="brand-name">PET CHIQUE</div><div class="brand-sub">Gestão</div></div></div>
+        <div class="user-badge">
+          <div class="user-avatar ${isOwner ? 'owner' : ''}">${isOwner ? '👑' : '👤'}</div>
+          <div><div class="user-name">${userName}</div><div class="user-role">${isOwner ? 'Proprietário' : 'Funcionário'}</div></div>
+        </div>
+      </div>
+      <div class="nav-items">
+        ${navItem('dashboard','🏠','Início')}
+        ${navItem('nova-venda','🛒','Nova Venda')}
+        ${navItem('vendas','📋','Vendas')}
+        ${navItem('clientes','👥','Clientes')}
+        ${navItem('fiados','⚠️','Fiados', pendingFiados > 0 ? pendingFiados : null)}
+        ${navItem('produtos','📦','Produtos')}
+        ${navItem('caixa','💳','Caixa', null, openCash ? 'green' : 'red')}
+        ${navItem('relatorios','📊','Relatórios')}
+        ${navItem('config','⚙️','Configurações')}
+      </div>
+      <button id="logout-btn" class="btn-logout">🚪 Sair</button>
+    </nav>
+    <main class="main-area">
+      <div class="mobile-header">
+        <div style="display:flex;align-items:center;gap:8px"><span style="font-size:22px">🐾</span><span style="font-weight:800;font-size:16px;color:#e8f0ff">PET CHIQUE</span></div>
+        <div style="display:flex;align-items:center;gap:8px"><span style="color:#7ba7d4;font-size:13px">${isOwner?'👑':'👤'} ${userName}</span><button id="mob-logout" style="background:#0f2040;border:none;border-radius:8px;padding:5px 10px;color:#7ba7d4;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit">Sair</button></div>
+      </div>
+      <div id="main-content"></div>
+      <footer class="legal-footer">© 2026 Desenvolvido por <strong>Adricia Rafaela</strong>. Licenciado para <strong>Pet Chique (Adriano Sampaio)</strong>. Responsabilidade de dados: Estabelecimento (LGPD)</footer>
+    </main>
+  </div>
+  <nav class="bottom-nav">
+    <div class="bottom-nav-inner">
+      ${bnavItem('dashboard','🏠','Início')}
+      ${bnavItem('nova-venda','🛒','Venda')}
+      ${bnavItem('vendas','📋','Vendas')}
+      ${bnavItem('clientes','👥','Clientes')}
+      ${bnavItem('fiados','⚠️','Fiados', pendingFiados > 0 ? pendingFiados : null)}
+      ${bnavItem('produtos','📦','Produtos')}
+      ${bnavItem('caixa','💳','Caixa', null, openCash ? 'green' : 'red')}
+      ${bnavItem('relatorios','📊','Relatório')}
+      ${bnavItem('config','⚙️','Config.')}
+    </div>
+  </nav>
+  <div id="toasts" class="toasts"></div>
+  <div id="modal-area"></div>`;
+  $('logout-btn').onclick = () => signOut(auth);
+  const ml = $('mob-logout'); if (ml) ml.onclick = () => signOut(auth);
+  document.querySelectorAll('.nav-item').forEach(el => {
+    el.onclick = () => { activeTab = el.dataset.tab; document.querySelectorAll('.nav-item').forEach(x => x.classList.remove('active')); el.classList.add('active'); refreshTab(); };
+  });
+  document.querySelectorAll('.bnav-item').forEach(el => {
+    el.onclick = () => { activeTab = el.dataset.tab; renderApp(); };
+  });
+  setActiveNav();
+  refreshTab();
+}
+
+function navItem(tab, icon, label, badge, dot) {
+  return `<div class="nav-item${activeTab === tab ? ' active' : ''}" data-tab="${tab}">
+    <span class="nav-icon">${icon}</span>
+    <span>${label}</span>
+    ${badge ? `<span class="nav-badge">${badge}</span>` : ''}
+    ${dot ? `<span class="nav-dot ${dot}"></span>` : ''}
+  </div>`;
+}
+function setActiveNav() { document.querySelectorAll('.nav-item').forEach(x => { if (x.dataset.tab === activeTab) x.classList.add('active'); }); }
+
+// ── DASHBOARD ──────────────────────────────────────────────────────────────
+function renderDashboard() {
+  const today = new Date(); today.setHours(0,0,0,0);
+  const todaySales = appData.sales.filter(s => !s.deleted && s.date?.toDate && s.date.toDate() >= today);
+  const todayRev = todaySales.reduce((a,s) => a + (s.total||0), 0);
+  const weekAgo = new Date(); weekAgo.setDate(weekAgo.getDate()-7);
+  const weekSales = appData.sales.filter(s => !s.deleted && s.date?.toDate && s.date.toDate() >= weekAgo);
+  const weekRev = weekSales.reduce((a,s) => a + (s.total||0), 0);
+  const monthAgo = new Date(); monthAgo.setDate(1); monthAgo.setHours(0,0,0,0);
+  const monthSales = appData.sales.filter(s => !s.deleted && s.date?.toDate && s.date.toDate() >= monthAgo);
+  const monthRev = monthSales.reduce((a,s) => a + (s.total||0), 0);
+  const openCash = appData.cashSessions.find(c => !c.closed);
+  const cashSales = openCash ? appData.sales.filter(s => s.cashSessionId === openCash.id && !s.deleted) : [];
+  const cashTotal = cashSales.reduce((a,s) => a + (s.total||0), 0);
+  const lowStock = appData.products.filter(p => (p.stock||0) < 5);
+  // Últimas 6 vendas — mais informativas
+  const recentSales = [...appData.sales].filter(s => !s.deleted)
+    .sort((a,b) => (b.date?.seconds||0) - (a.date?.seconds||0)).slice(0,6);
+  // Formas de pagamento do dia
+  const byMethod = todaySales.reduce((acc,s) => { acc[s.payMethod]=(acc[s.payMethod]||0)+(s.total||0); return acc; }, {});
+
+  return `<div class="page">
+    <div class="page-header">
+      <div>
+        <h2 style="font-size:20px">Olá, ${currentUserData?.name?.split(' ')[0]}! 👋</h2>
+        <p class="muted small">${new Date().toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long'})}</p>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <div class="cash-status-pill ${openCash?'open':'closed'}">${openCash?'🟢 Caixa Aberto':'🔴 Caixa Fechado'}</div>
+      </div>
+    </div>
+
+    <!-- MÉTRICAS PRINCIPAIS -->
+    <div class="dash-metrics">
+      <div class="metric-card gold">
+        <div class="metric-icon">🛒</div>
+        <div class="metric-body">
+          <div class="metric-label">Hoje</div>
+          <div class="metric-value">${fmt(todayRev)}</div>
+          <div class="metric-sub">${todaySales.length} venda(s)</div>
+        </div>
+      </div>
+      <div class="metric-card blue">
+        <div class="metric-icon">📅</div>
+        <div class="metric-body">
+          <div class="metric-label">Esta Semana</div>
+          <div class="metric-value">${fmt(weekRev)}</div>
+          <div class="metric-sub">${weekSales.length} venda(s)</div>
+        </div>
+      </div>
+      <div class="metric-card teal">
+        <div class="metric-icon">📊</div>
+        <div class="metric-body">
+          <div class="metric-label">Este Mês</div>
+          <div class="metric-value">${fmt(monthRev)}</div>
+          <div class="metric-sub">${monthSales.length} venda(s)</div>
+        </div>
+      </div>
+      <div class="metric-card ${openCash?'green':'red'}">
+        <div class="metric-icon">💳</div>
+        <div class="metric-body">
+          <div class="metric-label">Caixa Atual</div>
+          <div class="metric-value">${openCash ? fmt(cashTotal) : '—'}</div>
+          <div class="metric-sub">${openCash ? `${cashSales.length} venda(s) na sessão` : 'Caixa fechado'}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ALERTA ESTOQUE BAIXO -->
+    ${lowStock.length > 0 ? `<div class="alert-box gold-alert">⚠️ <strong>Estoque crítico:</strong> ${lowStock.map(p=>`${p.name} (${p.stock} ${p.unit})`).join(' • ')}</div>` : ''}
+
+    <!-- ÚLTIMAS VENDAS + PAGAMENTOS DO DIA -->
+    <div class="dash-bottom">
+      <div class="card">
+        <h3 class="section-title" style="color:#D4AF37;margin-bottom:14px">🧾 Últimas Vendas</h3>
+        ${recentSales.length ? recentSales.map(s=>`<div class="list-row">
+          <div>
+            <div class="bold small">${s.clientName||'Avulso'}</div>
+            <div class="muted" style="font-size:11px">${fmtDate(s.date)} · ${s.payMethod||''}</div>
+          </div>
+          <span class="green bold">${fmt(s.total)}</span>
+        </div>`).join('') : '<p class="muted small">Nenhuma venda registrada.</p>'}
+        <button class="btn-dash-link" onclick="activeTab='nova-venda';refreshTab()">+ Nova Venda →</button>
+      </div>
+      <div class="card">
+        <h3 class="section-title" style="color:#D4AF37;margin-bottom:14px">💳 Pagamentos de Hoje</h3>
+        ${Object.keys(byMethod).length ? Object.entries(byMethod).map(([m,v])=>`<div class="list-row">
+          <span class="muted">${m}</span>
+          <span class="bold">${fmt(v)}</span>
+        </div>`).join('') : '<p class="muted small">Sem vendas hoje.</p>'}
+        <div style="margin-top:12px;padding-top:10px;border-top:1px solid #0f2040">
+          <div class="list-row"><span class="muted bold">Total do dia</span><span class="gold-text bold" style="font-size:18px">${fmt(todayRev)}</span></div>
+        </div>
+        <button class="btn-dash-relatorios" onclick="activeTab='relatorios';renderApp()">Ver Relatórios →</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function card(icon, label, value, sub, color) {
+  return `<div class="stat-card" style="border-color:${color}44"><div class="stat-icon" style="color:${color}">${icon}</div><p class="stat-label">${label}</p><p class="stat-value" style="color:${color}">${value}</p><p class="stat-sub">${sub}</p></div>`;
+}
+
+// ── NOVA VENDA ─────────────────────────────────────────────────────────────
+function renderNewSale() {
+  return `<div class="page">
+    <div class="page-header"><h2>🛒 Nova Venda</h2></div>
+    <div class="sale-grid">
+      <div>
+        <!-- BUSCA -->
+        <div class="barcode-row">
+          <input id="barcode-input" class="input" placeholder="📷 Cód. de barras ou nome do produto..."
+            oninput="filterProducts(this.value)" onkeydown="barcodeKeydown(event)"
+            style="font-size:15px;padding:13px 16px"/>
+          <button class="btn-icon" title="Buscar" onclick="filterProducts($('barcode-input').value)">🔍</button>
+        </div>
+
+        <!-- CAMPO DE PREÇO EDITÁVEL (aparece ao selecionar produto) -->
+        <div id="selected-product-bar" style="display:none;background:#0a1628;border:1px solid #D4AF3744;border-radius:14px;padding:12px 14px;margin-top:10px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+            <span id="selected-prod-name" style="font-weight:700;color:#e8f0ff;font-size:14px"></span>
+            <button onclick="clearSelectedProduct()" style="background:none;border:none;color:#ff3b5c;font-size:18px;cursor:pointer;padding:0 4px">×</button>
+          </div>
+          <div style="display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:center">
+            <div>
+              <label style="font-size:11px;color:#7ba7d4;display:block;margin-bottom:4px">Qtd</label>
+              <input id="add-qty" type="number" inputmode="decimal" min="0.1" step="0.1" value="1"
+                class="input" style="width:70px;font-size:16px;padding:10px;text-align:center"/>
+            </div>
+            <div>
+              <label style="font-size:11px;color:#7ba7d4;display:block;margin-bottom:4px">Preço Unitário (R$)</label>
+              <input id="add-price" type="number" inputmode="decimal" step="0.01"
+                class="input" style="font-size:18px;font-weight:700;padding:10px;color:#D4AF37"/>
+            </div>
+            <div style="padding-top:18px">
+              <button onclick="confirmAddToCart()"
+                style="background:linear-gradient(135deg,#1d9f4f,#166b36);border:none;border-radius:12px;padding:12px 18px;color:#fff;font-weight:800;font-size:20px;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform .1s,opacity .1s"
+                ontouchstart="this.style.transform='scale(.95)'" ontouchend="this.style.transform='scale(1)'">
+                ＋
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div id="prod-list" class="prod-list" style="margin-top:10px">${renderProductList(appData.products)}</div>
+      </div>
+      <div>
+        <div class="card" style="min-height:220px">
+          <h3 class="section-title">🛒 Itens da Venda</h3>
+          <div id="cart-items"><p class="muted" style="font-size:13px">Clique nos produtos para adicionar</p></div>
+          <div id="cart-total"></div>
+        </div>
+        <div class="card" style="margin-top:14px">
+          <div class="form-group">
+            <label>Cliente</label>
+            <select id="sale-client" class="input" onchange="onClientSelect(this.value)">
+              <option value="">Venda Avulsa</option>
+              ${appData.clients.map(c=>`<option value="${c.id}">${c.name}</option>`).join('')}
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Ou nome avulso</label>
+            <input id="sale-client-name" class="input" placeholder="Nome do cliente"/>
+          </div>
+          <div class="form-group">
+            <label>Pagamento</label>
+            <div class="pay-methods">
+              ${['dinheiro','pix','débito','crédito'].map(m=>`<button class="pay-btn${m==='dinheiro'?' active':''}" data-method="${m}" onclick="setPayMethod('${m}')">${m}</button>`).join('')}
+            </div>
+          </div>
+          <div id="fiado-section" style="display:none" class="form-group">
+            <button id="fiado-btn" class="btn-fiado" onclick="toggleFiado()">⚠️ Lançar no Fiado</button>
+          </div>
+          <div class="form-group">
+            <label>Observação</label>
+            <input id="sale-note" class="input" placeholder="Anotação da venda..."/>
+          </div>
+          <button id="finalize-btn" class="btn-success btn-full" onclick="finalizeSale()">✅ Finalizar Venda</button>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+// produto selecionado aguardando confirmação
+let _pendingProductId = null;
+
+window.clearSelectedProduct = () => {
+  _pendingProductId = null;
+  const bar = $('selected-product-bar');
+  if (bar) bar.style.display = 'none';
+  const pl = $('prod-list'); if (pl) pl.style.display = '';
+  filterProducts('');
+  const bi = $('barcode-input'); if (bi) bi.value = '';
+};
+
+window.confirmAddToCart = () => {
+  if (!_pendingProductId) return;
+  const prod = appData.products.find(p => p.id === _pendingProductId);
+  if (!prod) return;
+  const qty = parseFloat($('add-qty')?.value) || 1;
+  const price = parseFloat($('add-price')?.value);
+  if (!price || price <= 0) { toast('Informe um preço válido.', 'error'); return; }
+  const ex = cart.find(i => i.productId === _pendingProductId);
+  if (ex) { ex.qty += qty; ex.price = price; }
+  else cart.push({ productId: prod.id, name: prod.name, qty, price, unit: prod.unit, cost: prod.cost || 0 });
+  renderCart();
+  toast(`${prod.name} adicionado ✅`, 'success');
+  clearSelectedProduct();
+};
+
+window.barcodeKeydown = (e) => {
+  if (e.key === 'Enter') {
+    const q = $('barcode-input').value.trim();
+    const exact = appData.products.find(p => p.barcode && p.barcode === q);
+    if (exact) { addToCart(exact.id); return; }
+    filterProducts(q);
+  }
+};
+
+window.filterProducts = (q) => {
+  const list = $('prod-list');
+  if (!list) return;
+  const filtered = q
+    ? appData.products.filter(p =>
+        p.name.toLowerCase().includes(q.toLowerCase()) ||
+        p.category?.toLowerCase().includes(q.toLowerCase()) ||
+        (p.barcode && p.barcode.includes(q)) ||
+        (p.brand && p.brand.toLowerCase().includes(q.toLowerCase()))
+      )
+    : appData.products;
+  list.innerHTML = renderProductList(filtered);
+};
+
+function renderProductList(prods) {
+  return prods.map(p => `<div class="prod-item ${p.stock < 1 ? 'out-of-stock' : ''}" onclick="addToCart('${p.id}')">
+    <div>
+      <div class="prod-name">${p.name}${p.stock < 1 ? ' <span style="color:#ff3b5c;font-size:11px">⚠️ SEM ESTOQUE</span>' : ''}</div>
+      <div class="prod-meta">${p.category}${p.brand ? ' · ' + p.brand : ''} · ${p.stock} ${p.unit}${p.barcode ? ' · 🔢 ' + p.barcode : ''}</div>
+    </div>
+    <div class="prod-price">${fmt(p.price)}</div>
+  </div>`).join('') || '<p class="muted">Nenhum produto encontrado.</p>';
+}
+
+let cart = [];
+let isFiado = false;
+let payMethod = 'dinheiro';
+
+window.addToCart = (pid) => {
+  const prod = appData.products.find(p => p.id === pid);
+  if (!prod) return;
+  _pendingProductId = pid;
+  const bar = $('selected-product-bar');
+  const nameEl = $('selected-prod-name');
+  const priceEl = $('add-price');
+  const qtyEl = $('add-qty');
+  if (bar) bar.style.display = 'block';
+  if (nameEl) nameEl.textContent = prod.name + (prod.stock < 1 ? ' ⚠️' : '');
+  if (priceEl) { priceEl.value = prod.price; priceEl.focus(); }
+  if (qtyEl) qtyEl.value = 1;
+  // Hide the product list while confirming
+  const pl = $('prod-list'); if (pl) pl.style.display = 'none';
+};
+
+
+
+window.removeFromCart = (pid) => { cart = cart.filter(i => i.productId !== pid); renderCart(); };
+window.setQty = (pid, v) => { const i = cart.find(x => x.productId === pid); if (i) i.qty = parseFloat(v) || 0; renderCart(); };
+window.setPrice = (pid, v) => { const i = cart.find(x => x.productId === pid); if (i) i.price = parseFloat(v) || 0; renderCart(); };
+window.setPdvMethod = (m) => {
+  payMethod = m;
+  document.querySelectorAll('.pdv-pay-btn').forEach(b => b.classList.toggle('active', b.dataset.method === m));
+  const fiadoDiv = $('pdv-fiado-name');
+  if (fiadoDiv) fiadoDiv.style.display = m === 'fiado' ? 'block' : 'none';
+  updateFinalizeBtn();
+};
+window.setPayMethod = window.setPdvMethod; // legacy alias
+window.onClientSelect = () => {};
+window.toggleFiado = () => {};
+
+function updateFinalizeBtn() {
+  const btn = $('finalize-btn');
+  if (!btn) return;
+  const ready = cart.length > 0 && payMethod;
+  btn.disabled = !ready;
+  btn.style.opacity = ready ? '1' : '0.45';
+  btn.style.cursor = ready ? 'pointer' : 'not-allowed';
+}
+
+function renderCart() {
+  const ci = $('cart-items'); const ct = $('cart-total');
+  if (!ci) return;
+  if (cart.length === 0) { ci.innerHTML = '<p class="muted" style="font-size:13px">Clique nos produtos para adicionar</p>'; if (ct) ct.innerHTML = ''; return; }
+  const total = cart.reduce((a,i) => a + i.qty * i.price, 0);
+  const totalCost = cart.reduce((a,i) => a + i.qty * (i.cost || 0), 0);
+  const isOwnerView = currentUserData?.name === 'Adriano Sampaio';
+  ci.innerHTML = cart.map(item => `<div class="cart-item">
+    <div style="flex:1;min-width:0">
+      <div class="cart-name">${item.name}</div>
+    </div>
+    <input type="number" value="${item.qty}" min="0.1" step="0.1" class="input cart-qty" onchange="setQty('${item.productId}',this.value)"/>
+    <span class="muted" style="font-size:11px">${item.unit}</span>
+    <input type="number" value="${item.price}" step="0.01" class="input cart-price" onchange="setPrice('${item.productId}',this.value)"/>
+    <span class="green bold" style="min-width:70px;text-align:right">${fmt(item.qty*item.price)}</span>
+    <button class="btn-icon-danger" onclick="removeFromCart('${item.productId}')">✕</button>
+  </div>`).join('');
+  const lucro = total - totalCost;
+  if (ct) ct.innerHTML = `<div class="cart-total-row">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">
+      <span class="muted small">${cart.length} item(ns)</span>
+      <span>Total: <span class="green bold" style="font-size:20px">${fmt(total)}</span></span>
+    </div>
+    ${isOwnerView && totalCost > 0 ? `<div class="lucro-row"><span class="muted small">Custo total: ${fmt(totalCost)}</span><span class="lucro-badge">💹 Lucro Bruto: ${fmt(lucro)}</span></div>` : ''}
+  </div>`;
+  updateFinalizeBtn();
+}
+
+window.finalizeSale = async () => {
+  if (cart.length === 0) { toast('Adicione ao menos um produto.', 'error'); return; }
+  const openCash = appData.cashSessions.find(c => !c.closed);
+  if (!openCash) { toast('Abra o caixa antes de vender!', 'warning'); return; }
+  const isFiadoMethod = payMethod === 'fiado';
+  const clientId = isFiadoMethod ? ($('sale-client')?.value || null) : null;
+  const clientObj = clientId ? appData.clients.find(c => c.id === clientId) : null;
+  const clientName = clientObj?.name || 'Avulso';
+  const total = cart.reduce((a,i) => a + i.qty * i.price, 0);
+  const btn = $('finalize-btn'); if (btn) { btn.textContent = 'Salvando...'; btn.disabled = true; }
+  try {
+    await addDoc(collection(db, 'sales'), {
+      items: cart, total, payMethod,
+      clientName, clientId: clientId || null, note: '',
+      date: serverTimestamp(), createdBy: currentUserData.name,
+      deleted: false, cashSessionId: openCash.id
+    });
+    if (isFiadoMethod && clientId) {
+      await addDoc(collection(db, 'fiados'), {
+        clientId, clientName, items: cart, total,
+        date: serverTimestamp(), paid: false, createdBy: currentUserData.name
+      });
+    }
+    for (const item of cart) {
+      const prod = appData.products.find(p => p.id === item.productId);
+      if (prod) await updateDoc(doc(db, 'products', item.productId), { stock: Math.max(0, (prod.stock||0) - item.qty) });
+    }
+    cart = []; payMethod = 'dinheiro';
+    toast(`Venda de ${fmt(total)} registrada! ✅`, 'success');
+    activeTab = 'nova-venda'; refreshTab();
+  } catch (e) { toast('Erro ao salvar venda: ' + e.message, 'error'); if (btn) { btn.textContent = '✅ Finalizar Venda'; btn.disabled = false; } }
+};
+
+// ── VENDAS ─────────────────────────────────────────────────────────────────
+function renderSales() {
+  // Only show non-fiado sales (dinheiro, pix, débito, crédito)
+  const all = [...appData.sales]
+    .filter(s => s.payMethod !== 'fiado')
+    .sort((a,b) => (b.date?.seconds||0) - (a.date?.seconds||0));
+
+  const totalDinheiro = all.filter(s=>!s.deleted&&s.payMethod==='dinheiro').reduce((a,s)=>a+(s.total||0),0);
+  const totalPix      = all.filter(s=>!s.deleted&&s.payMethod==='pix').reduce((a,s)=>a+(s.total||0),0);
+  const totalGeral    = totalDinheiro + totalPix;
+
+  return `<div class="page">
+    <div class="page-header"><h2>📋 Histórico de Vendas</h2></div>
+
+    <!-- Resumo de caixa -->
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:18px">
+      <div style="background:#00d4aa14;border:1px solid #00d4aa33;border-radius:12px;padding:12px;text-align:center">
+        <div style="font-size:11px;color:#00d4aa;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Dinheiro</div>
+        <div style="font-size:17px;font-weight:800;color:#00d4aa">${fmt(totalDinheiro)}</div>
+      </div>
+      <div style="background:#c084fc14;border:1px solid #c084fc33;border-radius:12px;padding:12px;text-align:center">
+        <div style="font-size:11px;color:#c084fc;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Pix</div>
+        <div style="font-size:17px;font-weight:800;color:#c084fc">${fmt(totalPix)}</div>
+      </div>
+      <div style="background:#D4AF3714;border:1px solid #D4AF3744;border-radius:12px;padding:12px;text-align:center">
+        <div style="font-size:11px;color:#D4AF37;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Total</div>
+        <div style="font-size:17px;font-weight:800;color:#D4AF37">${fmt(totalGeral)}</div>
+      </div>
+    </div>
+
+    <div class="list-container">
+      ${all.length ? all.map(s => `<div class="sale-row ${s.deleted?'deleted':''}">
+        <div class="sale-info">
+          <div class="sale-header">
+            <span class="bold">${s.clientName||'Avulso'}</span>
+            ${s.deleted ? '<span class="badge red">CANCELADA</span>' : ''}
+          </div>
+          <div class="sale-meta">${fmtDate(s.date)} · <span style="text-transform:capitalize">${s.payMethod||''}</span></div>
+          ${s.deleted ? `<div class="sale-cancel">❌ Cancelado por ${s.deletedBy}: ${s.deleteReason}</div>` : ''}
+          <div class="sale-items">${(s.items||[]).map(i=>`<span class="item-tag">${i.qty}x ${i.name}</span>`).join('')}</div>
+        </div>
+        <div class="sale-right">
+          <div class="sale-total ${s.deleted?'muted':'green'}">${fmt(s.total)}</div>
+          ${!s.deleted && currentUserData?.role==='owner' ? `<button class="btn-sm-danger" onclick="cancelSale('${s.id}')">Cancelar</button>` : ''}
+        </div>
+      </div>`).join('') : '<p class="muted">Nenhuma venda registrada.</p>'}
+    </div>
+  </div>`;
+}
+
+window.cancelSale = (id) => {
+  showModal(`<div class="modal-body">
+    <h3>Cancelar Venda</h3>
+    <p class="muted">O registro da venda é mantido no sistema.</p>
+    <div class="form-group"><label>Motivo *</label><input id="cancel-reason" class="input" placeholder="Ex: Cliente devolveu..."/></div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModal()">Voltar</button>
+      <button class="btn-danger" onclick="confirmCancel('${id}')">Confirmar Cancelamento</button>
+    </div>
+  </div>`);
+};
+
+window.confirmCancel = async (id) => {
+  const reason = $('cancel-reason')?.value;
+  if (!reason) { toast('Informe o motivo.', 'error'); return; }
+  const sale = appData.sales.find(s => s.id === id);
+  await updateDoc(doc(db, 'sales', id), { deleted: true, deleteReason: reason, deletedBy: currentUserData.name, deletedAt: serverTimestamp() });
+  await auditLog('Cancelar Venda', fmt(sale?.total||0), 'CANCELADA', { motivo: reason, venda: id });
+  closeModal(); toast('Venda cancelada (registro mantido).', 'warning');
+};
+
+// ── CLIENTES ───────────────────────────────────────────────────────────────
+function renderClients() {
+  const sorted = [...appData.clients].sort((a,b) => a.name.localeCompare(b.name));
+  return `<div class="page">
+    <div class="page-header">
+      <h2>👥 Clientes</h2>
+      <button class="btn-primary" onclick="openClientModal()">+ Novo Cliente</button>
+    </div>
+    <div class="cards-grid-3">
+      ${sorted.map(c => {
+        const fiados = appData.fiados.filter(f => f.clientId === c.id && !f.paid);
+        const totalDebito = fiados.reduce((a,f) => a+(f.total||0), 0);
+        const hasDebt = totalDebito > 0;
+        return `<div class="client-card ${hasDebt?'has-fiado':''}">
+          <div class="client-header">
+            <div style="flex:1;min-width:0">
+              <div class="bold" style="font-size:15px">${c.name}</div>
+              ${c.phone ? `<div class="muted small">📞 ${c.phone}</div>` : ''}
+              ${c.address ? `<div class="muted small">📍 ${c.address}</div>` : ''}
+            </div>
+            <div style="display:flex;gap:6px;flex-shrink:0">
+              <button class="btn-icon" title="Editar" onclick="openClientModal('${c.id}')">✏️</button>
+              ${hasDebt ? `<button class="btn-icon-gold" title="Ajustar Saldo" onclick="openAjusteSaldo('${c.id}','${c.name.replace(/'/g,"\\'")}',${totalDebito})">⚖️</button>` : ''}
+            </div>
+          </div>
+          ${hasDebt
+            ? `<div class="fiado-badge" style="margin-top:10px">
+                <div style="display:flex;justify-content:space-between;align-items:center">
+                  <span>⚠️ Débito: <strong>${fmt(totalDebito)}</strong></span>
+                  <span class="muted small">${fiados.length} conta(s)</span>
+                </div>
+               </div>`
+            : `<div class="ok-badge" style="margin-top:10px">✅ Sem pendências</div>`}
+          ${hasDebt ? `<button class="btn-ajuste-full" onclick="openAjusteSaldo('${c.id}','${c.name.replace(/'/g,"\\'")}',${totalDebito})">⚖️ Ajustar Saldo Manualmente</button>` : ''}
+        </div>`;
+      }).join('')}
+    </div>
+  </div>`;
+}
+
+window.openClientModal = (id) => {
+  const c = id ? appData.clients.find(x => x.id === id) : null;
+  const fiados = id ? appData.fiados.filter(f => f.clientId === id && !f.paid) : [];
+  const totalDebito = fiados.reduce((a,f) => a+(f.total||0), 0);
+
+  const debitoHtml = id ? `
+    <!-- CABEÇALHO DE DESTAQUE -->
+    <div style="text-align:center;padding:16px 0 20px;border-bottom:1px solid #132254;margin-bottom:18px">
+      <div style="font-size:22px;font-weight:800;color:#e8f0ff;margin-bottom:6px">${c?.name||''}</div>
+      <div style="font-size:13px;color:#7ba7d4;margin-bottom:8px">Saldo devedor</div>
+      <div style="font-size:36px;font-weight:900;color:${totalDebito>0?'#ff3b5c':'#00d4aa'};line-height:1">${fmt(totalDebito)}</div>
+      ${totalDebito>0 ? `<div style="font-size:11px;color:#ff3b5c88;margin-top:4px">${fiados.length} lançamento(s) em aberto</div>` : `<div style="font-size:12px;color:#00d4aa88;margin-top:4px">✅ Sem pendências</div>`}
+    </div>
+
+    <div style="font-size:12px;color:#7ba7d4;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px">Gestão de Conta</div>
+
+    <!-- Botões de ação -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+      <button onclick="toggleClientSection('debito-section','pagto-section')"
+        style="padding:12px 8px;background:#ff3b5c18;border:1px solid #ff3b5c44;border-radius:12px;color:#ff3b5c;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit"
+        ontouchstart="this.style.transform='scale(.96)'" ontouchend="this.style.transform='scale(1)'">
+        ➕ Adicionar Débito
+      </button>
+      <button onclick="toggleClientSection('pagto-section','debito-section')"
+        style="padding:12px 8px;background:#00d4aa18;border:1px solid #00d4aa44;border-radius:12px;color:#00d4aa;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit"
+        ontouchstart="this.style.transform='scale(.96)'" ontouchend="this.style.transform='scale(1)'">
+        💳 Registrar Pagamento
+      </button>
+    </div>
+
+    <!-- Formulário débito -->
+    <div id="debito-section" style="display:none;background:#ff3b5c0a;border:1px solid #ff3b5c22;border-radius:12px;padding:14px;margin-bottom:8px">
+      <div class="form-group" style="margin-bottom:10px">
+        <label style="font-size:12px;color:#ff3b5c">Valor do Débito (R$) *</label>
+        <input id="c-debito-val" type="number" inputmode="decimal" step="0.01" class="input"
+          placeholder="0,00" style="font-size:22px;font-weight:800;color:#ff3b5c;text-align:center"/>
+      </div>
+      <!-- Atalhos de valor -->
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
+        ${[10,20,50,100,150,200].map(v=>`<button onclick="addDebitoAtalho(${v})"
+          style="flex:1;min-width:52px;padding:8px 4px;background:#ff3b5c18;border:1px solid #ff3b5c44;border-radius:8px;color:#ff3b5c;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit"
+          ontouchstart="this.style.background='#ff3b5c33'" ontouchend="this.style.background='#ff3b5c18'">
+          +${v}
+        </button>`).join('')}
+      </div>
+      <div class="form-group" style="margin-bottom:10px">
+        <label style="font-size:12px;color:#7ba7d4">Motivo (opcional)</label>
+        <input id="c-debito-desc" class="input" placeholder="Ex: Ração de ontem..."/>
+      </div>
+      <button onclick="salvarDebitoCliente('${id}','${(c?.name||'').replace(/'/g,"\\'")}',${totalDebito})"
+        style="width:100%;padding:13px;background:linear-gradient(135deg,#c0392b,#922b21);border:none;border-radius:10px;color:#fff;font-weight:800;font-size:15px;cursor:pointer;font-family:inherit"
+        ontouchstart="this.style.transform='scale(.97)'" ontouchend="this.style.transform='scale(1)'">
+        ➕ Confirmar Débito
+      </button>
+    </div>
+
+    <!-- Formulário pagamento -->
+    <div id="pagto-section" style="display:none;background:#00d4aa0a;border:1px solid #00d4aa22;border-radius:12px;padding:14px;margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <span style="font-size:12px;color:#7ba7d4">Máximo: <strong class="green">${fmt(totalDebito)}</strong></span>
+        <button onclick="preencherTodoDébito(${totalDebito})"
+          style="background:#00d4aa22;border:1px solid #00d4aa55;border-radius:8px;padding:5px 12px;color:#00d4aa;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">
+          ✅ Quitar tudo
+        </button>
+      </div>
+      <!-- Atalhos de pagamento -->
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
+        ${[10,20,50,100,150,200].map(v=>`<button onclick="addPagtoAtalho(${v})"
+          style="flex:1;min-width:52px;padding:8px 4px;background:#00d4aa18;border:1px solid #00d4aa44;border-radius:8px;color:#00d4aa;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit"
+          ontouchstart="this.style.background='#00d4aa33'" ontouchend="this.style.background='#00d4aa18'">
+          ${v}
+        </button>`).join('')}
+      </div>
+      <div class="form-group" style="margin-bottom:10px">
+        <label style="font-size:12px;color:#00d4aa">Valor Pago (R$) *</label>
+        <input id="c-pagto-val" type="number" inputmode="decimal" step="0.01" class="input"
+          placeholder="0,00" style="font-size:22px;font-weight:800;color:#00d4aa;text-align:center"/>
+      </div>
+      <button onclick="salvarPagtoCliente('${id}','${(c?.name||'').replace(/'/g,"\\'")}',${totalDebito})"
+        style="width:100%;padding:13px;background:linear-gradient(135deg,#1d9f4f,#166b36);border:none;border-radius:10px;color:#fff;font-weight:800;font-size:15px;cursor:pointer;font-family:inherit"
+        ontouchstart="this.style.transform='scale(.97)'" ontouchend="this.style.transform='scale(1)'">
+        💳 Confirmar Pagamento
+      </button>
+    </div>` : '';
+
+  showModal(`<div class="modal-body">
+    ${id ? '' : '<h3>Novo Cliente</h3>'}
+    ${debitoHtml}
+    <div style="border-top:1px solid #132254;margin-top:${id?'18':'0'}px;padding-top:${id?'16':'0'}px">
+      ${id ? `<div style="font-size:12px;color:#7ba7d4;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Dados Cadastrais</div>` : ''}
+      <div class="form-group"><label>Nome *</label><input id="c-name" class="input" value="${c?.name||''}"/></div>
+      <div class="form-group"><label>Telefone</label><input id="c-phone" class="input" value="${c?.phone||''}"/></div>
+      <div class="form-group"><label>Endereço</label><input id="c-address" class="input" value="${c?.address||''}"/></div>
+      ${!id ? `
+      <div style="border-top:1px solid #132254;margin-top:14px;padding-top:14px">
+        <div style="font-size:12px;color:#ff9f1c;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Débito Inicial (opcional)</div>
+        <div class="form-group" style="margin-bottom:8px">
+          <label style="font-size:12px;color:#7ba7d4">Valor já devido (R$)</label>
+          <input id="c-debito-inicial" type="number" inputmode="decimal" step="0.01" class="input" placeholder="0,00" style="font-size:18px;font-weight:700;color:#ff9f1c"/>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
+          ${[10,20,50,100].map(v=>`<button type="button" onclick="document.getElementById('c-debito-inicial').value=(parseFloat(document.getElementById('c-debito-inicial').value||0)+${v}).toFixed(2)"
+            style="flex:1;padding:8px 4px;background:#ff9f1c18;border:1px solid #ff9f1c44;border-radius:8px;color:#ff9f1c;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">+${v}</button>`).join('')}
+        </div>
+        <div class="form-group">
+          <label style="font-size:12px;color:#7ba7d4">Descrição</label>
+          <input id="c-debito-inicial-desc" class="input" placeholder="Ex: Conta antiga, saldo anterior..."/>
+        </div>
+      </div>` : ''}
+    </div>
+    <div class="modal-actions" style="margin-top:14px">
+      <button class="btn-secondary" onclick="closeModal()">Fechar</button>
+      <button class="btn-primary" onclick="saveClient('${id||''}')">✓ Salvar Dados</button>
+    </div>
+  </div>`);
+};
+
+window.addDebitoAtalho = (v) => {
+  const el = $('c-debito-val');
+  if (!el) return;
+  el.value = parseFloat((parseFloat(el.value||0) + v).toFixed(2));
+};
+window.addPagtoAtalho = (v) => {
+  const el = $('c-pagto-val');
+  if (!el) return;
+  el.value = parseFloat((parseFloat(el.value||0) + v).toFixed(2));
+};
+
+window.toggleClientSection = (show, hide) => {
+  const s = $(show); const h = $(hide);
+  if (!s) return;
+  const isOpen = s.style.display !== 'none';
+  if (s) s.style.display = isOpen ? 'none' : 'block';
+  if (h) h.style.display = 'none';
+};
+
+window.preencherTodoDébito = (total) => {
+  const el = $('c-pagto-val'); if (el) el.value = total;
+};
+
+window.salvarDebitoCliente = async (clientId, clientName, debitoAtual) => {
+  const val = parseFloat($('c-debito-val')?.value);
+  const desc = $('c-debito-desc')?.value?.trim() || 'Débito manual';
+  if (!val || val <= 0) { toast('Informe um valor válido.', 'error'); return; }
+  await addDoc(collection(db, 'fiados'), {
+    clientId, clientName, total: val,
+    items: [{ name: desc, qty: 1, price: val }],
+    date: serverTimestamp(), paid: false, createdBy: currentUserData.name
+  });
+  await auditLog('Débito Manual', fmt(debitoAtual), fmt(debitoAtual + val), { clientName, descricao: desc });
+  closeModal();
+  toast(`Débito de ${fmt(val)} adicionado para ${clientName}`, 'warning');
+};
+
+window.salvarPagtoCliente = async (clientId, clientName, debitoAtual) => {
+  const val = parseFloat($('c-pagto-val')?.value);
+  if (!val || val <= 0) { toast('Informe um valor válido.', 'error'); return; }
+  if (val > debitoAtual + 0.01) { toast('Valor maior que o débito atual.', 'error'); return; }
+  // Quita fiados na ordem mais antiga primeiro
+  let restante = val;
+  const pendentes = appData.fiados.filter(f => f.clientId === clientId && !f.paid)
+    .sort((a,b) => (a.date?.seconds||0) - (b.date?.seconds||0));
+  for (const f of pendentes) {
+    if (restante <= 0) break;
+    if (f.total <= restante + 0.01) {
+      await updateDoc(doc(db, 'fiados', f.id), { paid: true, paidAt: serverTimestamp(), paidBy: currentUserData.name });
+      restante -= f.total;
+    } else {
+      await updateDoc(doc(db, 'fiados', f.id), { total: parseFloat((f.total - restante).toFixed(2)) });
+      restante = 0;
+    }
+  }
+  await auditLog('Pagamento Direto', fmt(debitoAtual), fmt(Math.max(0, debitoAtual - val)), { clientName });
+  closeModal();
+  toast(`Pagamento de ${fmt(val)} registrado para ${clientName} ✅`, 'success');
+};
+
+window.saveClient = async (id) => {
+  const name = $('c-name')?.value?.trim();
+  if (!name) { toast('Nome é obrigatório.', 'error'); return; }
+  const data = { name, phone: $('c-phone')?.value||'', address: $('c-address')?.value||'' };
+  if (id) {
+    await updateDoc(doc(db, 'clients', id), data);
+    closeModal(); toast('Cliente atualizado!', 'success');
+  } else {
+    const newDoc = await addDoc(collection(db, 'clients'), { ...data, createdAt: serverTimestamp() });
+    const debitoInicial = parseFloat($('c-debito-inicial')?.value);
+    if (debitoInicial > 0) {
+      const desc = $('c-debito-inicial-desc')?.value?.trim() || 'Saldo inicial';
+      await addDoc(collection(db, 'fiados'), {
+        clientId: newDoc.id, clientName: name, total: debitoInicial,
+        items: [{ name: desc, qty: 1, price: debitoInicial }],
+        date: serverTimestamp(), paid: false, createdBy: currentUserData.name
+      });
+      toast(`Cliente cadastrado com débito inicial de ${new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(debitoInicial)}!`, 'warning');
+    } else {
+      toast('Cliente cadastrado!', 'success');
+    }
+    closeModal();
+  }
+};
+
+// ── AJUSTE MANUAL DE SALDO ─────────────────────────────────────────────────
+window.openAjusteSaldo = (clientId, clientName, debitoAtual) => {
+  showModal(`<div class="modal-body">
+    <h3 style="color:#D4AF37">⚖️ Ajuste de Saldo</h3>
+    <p class="muted small" style="margin-bottom:16px">Cliente: <strong>${clientName}</strong></p>
+    <div class="saldo-atual-box">
+      <span class="muted">Débito atual:</span>
+      <span class="red bold" style="font-size:20px">${fmt(debitoAtual)}</span>
+    </div>
+    <div class="form-group" style="margin-top:16px">
+      <label>Tipo de Ajuste</label>
+      <div class="pay-methods" style="flex-wrap:wrap">
+        <button class="pay-btn active" data-tipo="debito" onclick="selectTipoAjuste('debito',this)">➕ Adicionar Débito</button>
+        <button class="pay-btn" data-tipo="credito" onclick="selectTipoAjuste('credito',this)">➖ Conceder Crédito</button>
+        <button class="pay-btn" data-tipo="quitar" onclick="selectTipoAjuste('quitar',this)">✅ Quitar Tudo</button>
+      </div>
+    </div>
+    <div id="ajuste-valor-section">
+      <div class="form-group">
+        <label>Valor (R$) *</label>
+        <input id="ajuste-val" type="number" step="0.01" class="input" placeholder="0,00"/>
+      </div>
+      <div class="form-group">
+        <label>Motivo / Descrição *</label>
+        <input id="ajuste-desc" class="input" placeholder="Ex: Desconto acordado, erro de lançamento..."/>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModal()">Cancelar</button>
+      <button class="btn-gold" onclick="confirmarAjuste('${clientId}','${clientName}',${debitoAtual})">✓ Confirmar Ajuste</button>
+    </div>
+  </div>`);
+  window._tipoAjuste = 'debito';
+};
+
+window.selectTipoAjuste = (tipo, btn) => {
+  window._tipoAjuste = tipo;
+  document.querySelectorAll('[data-tipo]').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  const sec = document.getElementById('ajuste-valor-section');
+  if (sec) sec.style.display = tipo === 'quitar' ? 'none' : 'block';
+};
+
+window.confirmarAjuste = async (clientId, clientName, debitoAtual) => {
+  const tipo = window._tipoAjuste || 'debito';
+  const desc = $('ajuste-desc')?.value?.trim();
+  let val = parseFloat($('ajuste-val')?.value);
+
+  if (tipo === 'quitar') {
+    // Quita todos os fiados deste cliente
+    const pendentes = appData.fiados.filter(f => f.clientId === clientId && !f.paid);
+    if (!pendentes.length) { toast('Nenhum débito pendente.', 'warning'); return; }
+    for (const f of pendentes) {
+      await updateDoc(doc(db, 'fiados', f.id), { paid: true, paidAt: serverTimestamp(), paidBy: currentUserData.name });
+    }
+    await auditLog('Ajuste Manual — Quitar Tudo', fmt(debitoAtual), 'R$ 0,00', { clientName, motivo: desc || 'Quitação manual' });
+    closeModal(); toast(`Débito de ${clientName} quitado! ✅`, 'success'); return;
+  }
+
+  if (!val || val <= 0) { toast('Informe um valor válido.', 'error'); return; }
+  if (!desc) { toast('Informe o motivo.', 'error'); return; }
+
+  if (tipo === 'debito') {
+    // Adiciona um novo lançamento de fiado
+    await addDoc(collection(db, 'fiados'), {
+      clientId, clientName,
+      items: [{ name: desc, qty: 1, price: val }],
+      total: val, date: serverTimestamp(), paid: false,
+      createdBy: currentUserData.name, isManual: true
+    });
+    await auditLog('Ajuste Manual — Débito', fmt(debitoAtual), fmt(debitoAtual + val), { clientName, descricao: desc });
+    toast(`Débito de ${fmt(val)} adicionado para ${clientName}`, 'warning');
+  } else {
+    // Crédito: cria fiado negativo que reduz o débito
+    if (val > debitoAtual) { toast(`Valor maior que o débito atual (${fmt(debitoAtual)}).`, 'error'); return; }
+    // Quita fiados parcialmente — do mais antigo ao mais novo
+    let restante = val;
+    const pendentes = [...appData.fiados.filter(f => f.clientId === clientId && !f.paid)]
+      .sort((a,b) => (a.date?.seconds||0) - (b.date?.seconds||0));
+    for (const f of pendentes) {
+      if (restante <= 0) break;
+      if (f.total <= restante) {
+        await updateDoc(doc(db, 'fiados', f.id), { paid: true, paidAt: serverTimestamp(), paidBy: currentUserData.name });
+        restante -= f.total;
+      } else {
+        // Reduz o valor parcialmente
+        await updateDoc(doc(db, 'fiados', f.id), { total: f.total - restante });
+        restante = 0;
+      }
+    }
+    await auditLog('Ajuste Manual — Crédito', fmt(debitoAtual), fmt(debitoAtual - val), { clientName, descricao: desc });
+    toast(`Crédito de ${fmt(val)} aplicado para ${clientName}`, 'success');
+  }
+  closeModal();
+};
+
+// ── FIADOS ─────────────────────────────────────────────────────────────────
+function renderFiados() {
+  const pending = appData.fiados.filter(f => !f.paid);
+
+  // Group pending by client
+  const byClient = {};
+  pending.forEach(f => {
+    const key = f.clientId || f.clientName;
+    if (!byClient[key]) byClient[key] = { name: f.clientName, clientId: f.clientId||'', fiados: [] };
+    byClient[key].fiados.push(f);
+  });
+  const groups = Object.values(byClient).sort((a,b) => {
+    const ta = a.fiados.reduce((s,f)=>s+(f.total||0),0);
+    const tb = b.fiados.reduce((s,f)=>s+(f.total||0),0);
+    return tb - ta;
+  });
+
+  return `<div class="page">
+    <div class="page-header"><h2>⚠️ Fiados</h2></div>
+    <input id="fiado-search" class="input" placeholder="🔍 Buscar cliente..." oninput="filterFiados(this.value)"
+      style="margin-bottom:14px;font-size:15px;padding:12px 16px;border-radius:14px"/>
+    <div id="fiado-list">
+      ${groups.length ? groups.map(g => {
+        const total = g.fiados.reduce((a,f)=>a+(f.total||0),0);
+        const fiadoIds = JSON.stringify(g.fiados.map(f=>f.id));
+        const safeIds = encodeURIComponent(fiadoIds);
+        const safeName = g.name.replace(/'/g,"\\'");
+        return `<div class="fd-row" data-name="${g.name.toLowerCase()}" onclick="openFiadoDrill('${g.clientId}','${safeName}',${total},'${safeIds}')">
+          <div class="fd-name">👤 ${g.name}</div>
+          <div class="fd-right">
+            <span class="fd-valor ${total>0?'fd-red':'fd-ok'}">${fmt(total)}</span>
+            <span class="fd-arrow">›</span>
+          </div>
+        </div>`;
+      }).join('') : '<p class="green" style="padding:20px 0">Nenhum fiado pendente! 🎉</p>'}
+    </div>
+  </div>`;
+}
+
+window.filterFiados = (q) => {
+  const rows = document.querySelectorAll('.fd-row');
+  rows.forEach(r => {
+    r.style.display = r.dataset.name.includes(q.toLowerCase()) ? '' : 'none';
+  });
+};
+
+window.openFiadoDrill = (clientId, clientName, total, safeIds) => {
+  const fiadoIds = JSON.parse(decodeURIComponent(safeIds));
+  const fiados = appData.fiados.filter(f => fiadoIds.includes(f.id));
+  const itemsHtml = fiados.map(f=>`
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #0f2040">
+      <div>
+        <div class="muted small">${fmtDate(f.date)}</div>
+        <div style="font-size:13px;color:#7ba7d4">${(f.items||[]).map(i=>`${i.qty}x ${i.name}`).join(', ')}</div>
+      </div>
+      <span class="red bold">${fmt(f.total)}</span>
+    </div>`).join('');
+
+  showModal(`<div class="modal-body">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+      <h3 style="margin:0">👤 ${clientName}</h3>
+      <button onclick="closeModal()" style="background:none;border:none;color:#7ba7d4;font-size:22px;cursor:pointer;padding:0 4px">×</button>
+    </div>
+    <div style="font-size:26px;font-weight:800;color:#ff3b5c;margin-bottom:16px">${fmt(total)}</div>
+
+    <div style="max-height:200px;overflow-y:auto;margin-bottom:16px">${itemsHtml}</div>
+
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <button class="btn-add-debt" style="padding:14px;font-size:15px;border-radius:14px;width:100%;text-align:center"
+        onclick="closeModal();somarDebito('${clientId}','${clientName}')">
+        ➕ Registrar Novo Valor
+      </button>
+      <button class="btn-success" style="padding:14px;font-size:15px;border-radius:14px;width:100%"
+        onclick="closeModal();quitarTodosCliente('${clientId}','${clientName}','${encodeURIComponent(JSON.stringify(fiadoIds))}')">
+        ✅ Realizar Pagamento / Baixa
+      </button>
+    </div>
+  </div>`);
+};
+
+window.quitarTodosCliente = async (clientId, clientName, safeIds) => {
+  let ids;
+  try {
+    const raw = decodeURIComponent(safeIds);
+    ids = JSON.parse(raw);
+  } catch(e) {
+    // legacy fallback — was JSON.stringify passed directly
+    try { ids = JSON.parse(safeIds.replace(/&#39;/g,"'")); } catch(_) { ids = []; }
+  }
+  const total = ids.reduce((a,id) => {
+    const f = appData.fiados.find(x => x.id === id);
+    return a + (f?.total||0);
+  }, 0);
+  showModal(`<div class="modal-body">
+    <h3 style="color:#00d4aa">✅ Confirmar Baixa</h3>
+    <p class="muted" style="margin-bottom:6px">Cliente: <strong>${clientName}</strong></p>
+    <p class="muted" style="margin-bottom:16px">Valor total: <strong class="green">${fmt(total)}</strong></p>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModal()">Cancelar</button>
+      <button class="btn-success" onclick="confirmarQuitacao('${clientName}',${JSON.stringify(ids)})">✅ Confirmar Quitação</button>
+    </div>
+  </div>`);
+};
+
+
+
+window.confirmarQuitacao = async (clientName, ids) => {
+  for (const id of ids) {
+    const fiadoDoc = appData.fiados.find(f => f.id === id);
+    const oldVal = fiadoDoc?.total || 0;
+    await updateDoc(doc(db, 'fiados', id), { paid: true, paidAt: serverTimestamp(), paidBy: currentUserData.name });
+    await auditLog('Quitar Fiado', fmt(oldVal), 'R$ 0,00 (quitado)', { clientName, fiadoId: id });
+  }
+  closeModal();
+  toast(`Fiado de ${clientName} quitado! ✅`, 'success');
+};
+
+window.markFiadoPaid = async (id) => {
+  const f = appData.fiados.find(x => x.id === id);
+  await updateDoc(doc(db, 'fiados', id), { paid: true, paidAt: serverTimestamp(), paidBy: currentUserData.name });
+  await auditLog('Quitar Fiado', fmt(f?.total||0), 'Quitado', { clientName: f?.clientName });
+  toast('Fiado quitado! ✅', 'success');
+};
+
+window.somarDebito = (clientId, clientName) => {
+  showModal(`<div class="modal-body">
+    <h3 style="color:#ff9f1c">➕ Somar Débito</h3>
+    <p class="muted">Adicionar valor ao débito de <strong>${clientName}</strong></p>
+    <div class="form-group" style="margin-top:14px"><label>Valor a Adicionar (R$) *</label><input id="add-debt-val" type="number" step="0.01" class="input" placeholder="0,00"/></div>
+    <div class="form-group"><label>Descrição *</label><input id="add-debt-desc" class="input" placeholder="Ex: Ração Extra 5kg"/></div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModal()">Cancelar</button>
+      <button class="btn-warning" onclick="confirmarSomarDebito('${clientId}','${clientName}')">➕ Adicionar Débito</button>
+    </div>
+  </div>`);
+};
+
+window.confirmarSomarDebito = async (clientId, clientName) => {
+  const val = parseFloat($('add-debt-val')?.value);
+  const desc = $('add-debt-desc')?.value?.trim();
+  if (!val || val <= 0) { toast('Informe um valor válido.', 'error'); return; }
+  if (!desc) { toast('Informe uma descrição.', 'error'); return; }
+  await addDoc(collection(db, 'fiados'), {
+    clientId: clientId || null, clientName, total: val,
+    items: [{ name: desc, qty: 1, price: val }],
+    date: serverTimestamp(), paid: false, createdBy: currentUserData.name
+  });
+  await auditLog('Somar Débito', 'R$ 0,00', fmt(val), { clientName, descricao: desc });
+  closeModal();
+  toast(`Débito de ${fmt(val)} adicionado para ${clientName}`, 'warning');
+};
+
+// ── PRODUTOS ───────────────────────────────────────────────────────────────
+function renderProducts() {
+  const isAdrianoOwner = currentUserData?.name === 'Adriano Sampaio';
+  const cats = [...new Set(appData.products.map(p => p.category))];
+  const needBuy = appData.products.filter(p => (p.stock || 0) < 1);
+  const totalLucroEstoque = appData.products.reduce((a, p) => {
+    return a + ((p.price || 0) - (p.cost || 0)) * (p.stock || 0);
+  }, 0);
+
+  return `<div class="page">
+    <div class="page-header">
+      <h2>📦 Produtos</h2>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        ${needBuy.length > 0 ? `<button class="btn-secondary" style="border:1px solid #ff9f1c44;color:#ff9f1c" onclick="showShoppingList()">🛍 Lista de Compras (${needBuy.length})</button>` : ''}
+        <button class="btn-primary" onclick="openProductModal()">+ Novo Produto</button>
+      </div>
+    </div>
+    ${isAdrianoOwner ? `<div class="lucro-estoque-card"><span>💹 Lucro Bruto potencial do estoque:</span><span class="lucro-badge">${fmt(totalLucroEstoque)}</span></div>` : ''}
+    ${needBuy.length > 0 ? `<div class="alert-box" style="border-color:#ff3b5c44;background:#ff3b5c10">⚠️ <strong>${needBuy.length} produto(s) sem estoque:</strong> ${needBuy.map(p => p.name).join(' • ')}</div>` : ''}
+    ${cats.map(cat => {
+      const prods = appData.products.filter(p => p.category === cat);
+      return `<h3 class="section-title" style="color:#60a5fa;margin-bottom:10px">${cat}</h3>` +
+        prods.map(p => {
+          const lucroUnit = (p.price || 0) - (p.cost || 0);
+          const semEstoque = (p.stock || 0) < 1;
+          const baixo = (p.stock || 0) < 10 && (p.stock || 0) >= 1;
+          return `<div class="prod-row ${semEstoque ? 'no-stock' : baixo ? 'low-stock' : ''}">
+            <div class="prod-row-name">${p.name}
+              ${semEstoque ? '<span class="badge red">⚠️ SEM ESTOQUE</span>' : baixo ? '<span class="badge yellow">BAIXO</span>' : ''}
+            </div>
+            <div style="display:flex;flex-direction:column;gap:2px;min-width:80px">
+              <span class="muted small">Estoque: <strong>${p.stock} ${p.unit}</strong></span>
+              ${p.brand ? `<span class="muted small">🏷 ${p.brand}</span>` : ''}
+              ${p.barcode ? `<span class="muted small">🔢 ${p.barcode}</span>` : ''}
+            </div>
+            <div style="text-align:right;min-width:90px">
+              <div class="green bold">${fmt(p.price)}</div>
+              ${isAdrianoOwner && p.cost ? `<div style="color:#ff9f1c;font-size:11px">custo: ${fmt(p.cost)}</div>` : ''}
+              ${isAdrianoOwner && p.cost ? `<div style="color:#00d4aa;font-size:11px">lucro: ${fmt(lucroUnit)}</div>` : ''}
+            </div>
+            <button class="btn-icon" onclick="openProductModal('${p.id}')">✏️</button>
+            ${isAdrianoOwner ? `<button class="btn-icon-danger" onclick="deleteProduct('${p.id}')">🗑</button>` : ''}
+          </div>`;
+        }).join('');
+    }).join('')}
+  </div>`;
+}
+
+window.showShoppingList = () => {
+  const needBuy = appData.products.filter(p => (p.stock || 0) < 1);
+  const rows = needBuy.map(p => `<div class="list-row">
+    <div><div class="bold">${p.name}</div><div class="muted small">${p.category}${p.brand ? ' · ' + p.brand : ''}</div></div>
+    <div style="text-align:right"><div class="red bold">⚠️ Sem estoque</div>${p.cost ? `<div class="muted small">Custo: ${fmt(p.cost)}</div>` : ''}</div>
+  </div>`).join('');
+  showModal(`<div class="modal-body">
+    <h3>🛍 Lista de Compras Automática</h3>
+    <p class="muted small" style="margin-bottom:14px">${needBuy.length} produto(s) com estoque zerado:</p>
+    <div style="max-height:350px;overflow-y:auto">${rows}</div>
+    <div class="modal-actions" style="margin-top:16px">
+      <button class="btn-secondary" onclick="closeModal()">Fechar</button>
+      <button class="btn-primary" onclick="exportShoppingList()">📋 Copiar Lista</button>
+    </div>
+  </div>`);
+};
+
+window.exportShoppingList = () => {
+  const needBuy = appData.products.filter(p => (p.stock || 0) < 1);
+  const text = '🛍 LISTA DE COMPRAS — PET CHIQUE\n' + new Date().toLocaleDateString('pt-BR') + '\n\n' +
+    needBuy.map((p, i) => `${i+1}. ${p.name}${p.brand ? ' (' + p.brand + ')' : ''} — ${p.category}`).join('\n');
+  navigator.clipboard?.writeText(text).then(() => toast('Lista copiada! ✅', 'success')).catch(() => toast('Não foi possível copiar.', 'warning'));
+};
+
+window.openProductModal = (id) => {
+  const p = id ? appData.products.find(x => x.id === id) : null;
+  const cats = ['Ração','Remédio','Construção','Higiene','Acessório','Outro'];
+  const isAdrianoOwner = currentUserData?.name === 'Adriano Sampaio';
+  showModal(`<div class="modal-body">
+    <h3>${p ? 'Editar' : 'Novo'} Produto</h3>
+    <div class="form-group"><label>Nome *</label><input id="p-name" class="input" value="${p?.name||''}"/></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="form-group"><label>Preço de Venda (R$) *</label><input id="p-price" type="number" step="0.01" class="input" value="${p?.price||''}"/></div>
+      ${isAdrianoOwner ? `<div class="form-group"><label>💰 Preço de Custo (R$)</label><input id="p-cost" type="number" step="0.01" class="input" value="${p?.cost||''}"/></div>` : '<div></div>'}
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="form-group"><label>Estoque</label><input id="p-stock" type="number" step="0.1" class="input" value="${p?.stock||0}"/></div>
+      <div class="form-group"><label>Unidade</label><select id="p-unit" class="input">${['un','kg','pc','cx','lt','sc'].map(u=>`<option value="${u}"${(p?.unit||'un')===u?' selected':''}>${u}</option>`).join('')}</select></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="form-group"><label>🏷 Marca</label><input id="p-brand" class="input" value="${p?.brand||''}" placeholder="Ex: Royal Canin"/></div>
+      <div class="form-group"><label>🔢 Cód. de Barras</label><input id="p-barcode" class="input" value="${p?.barcode||''}" placeholder="EAN-13..."/></div>
+    </div>
+    <div class="form-group"><label>Categoria</label><select id="p-cat" class="input">${cats.map(c=>`<option${p?.category===c?' selected':''}>${c}</option>`).join('')}</select></div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModal()">Cancelar</button>
+      <button class="btn-primary" onclick="saveProduct('${id||''}')">✓ Salvar</button>
+    </div>
+  </div>`);
+};
+
+window.saveProduct = async (id) => {
+  const name = $('p-name')?.value?.trim();
+  const price = parseFloat($('p-price')?.value);
+  if (!name || !price) { toast('Preencha nome e preço.', 'error'); return; }
+  const data = {
+    name, price,
+    cost: parseFloat($('p-cost')?.value) || 0,
+    stock: parseFloat($('p-stock')?.value) || 0,
+    unit: $('p-unit')?.value || 'un',
+    category: $('p-cat')?.value || 'Outro',
+    brand: $('p-brand')?.value || '',
+    barcode: $('p-barcode')?.value || ''
+  };
+  if (id) {
+    const old = appData.products.find(p => p.id === id);
+    await updateDoc(doc(db, 'products', id), data);
+    await auditLog('Editar Produto', `${old?.name} R$${old?.price}`, `${name} R$${price}`, { produto: name });
+  } else {
+    await addDoc(collection(db, 'products'), { ...data, createdAt: serverTimestamp() });
+    await auditLog('Novo Produto', '—', `${name} R$${price}`, { produto: name });
+  }
+  closeModal(); toast(id ? 'Produto atualizado!' : 'Produto cadastrado!', 'success');
+};
+
+window.deleteProduct = async (id) => {
+  if (currentUserData?.name !== 'Adriano Sampaio') { toast('Apenas o proprietário pode apagar produtos.', 'error'); return; }
+  if (!confirm('Remover este produto?')) return;
+  await deleteDoc(doc(db, 'products', id));
+  toast('Produto removido.', 'warning');
+};
+
+// ── CAIXA ──────────────────────────────────────────────────────────────────
+function renderCaixa() {
+  const openCash = appData.cashSessions.find(c => !c.closed);
+  const past = [...appData.cashSessions].filter(c=>c.closed).sort((a,b)=>(b.openedAt?.seconds||0)-(a.openedAt?.seconds||0));
+
+  // All-store fiados total (always visible)
+  const totalFiadoLoja = appData.fiados.filter(f=>!f.paid).reduce((a,f)=>a+(f.total||0),0);
+
+  let openSection = '';
+  if (!openCash) {
+    openSection = `<div class="card" style="max-width:420px;margin-bottom:28px">
+      <div style="text-align:center;margin-bottom:20px">
+        <div style="font-size:48px">🔒</div>
+        <h3 style="color:#ff3b5c">Caixa Fechado</h3>
+      </div>
+      <div class="form-group"><label>Troco Inicial (R$)</label><input id="open-val" type="number" inputmode="decimal" class="input" placeholder="0,00"/></div>
+      <button class="btn-success btn-full" onclick="openCashBox()">Abrir Caixa</button>
+    </div>`;
+  } else {
+    const sales = appData.sales.filter(s => s.cashSessionId === openCash.id && !s.deleted);
+    const salesReal = sales.filter(s => s.payMethod !== 'fiado');
+    const byMethod = salesReal.reduce((acc,s)=>{ acc[s.payMethod]=(acc[s.payMethod]||0)+s.total; return acc; },{});
+    const totalDinheiro = byMethod['dinheiro'] || 0;
+    const totalPix = byMethod['pix'] || 0;
+    const totalReal = salesReal.reduce((a,s)=>a+(s.total||0), 0);
+    const totalCaixa = totalReal + (openCash.openValue || 0);
+    const fiadoSessao = appData.fiados.filter(f => !f.paid).reduce((a,f)=>a+(f.total||0), 0);
+    const canceladas = sales.filter(s => s.deleted);
+    const totalCanceladas = canceladas.reduce((a,s)=>a+(s.total||0),0);
+
+    const methodIcons = { dinheiro:'💵', pix:'⚡', débito:'💳', crédito:'🏦' };
+
+    openSection = `
+      <!-- STATUS BAR -->
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px">
+        <span class="cash-dot" style="width:10px;height:10px;border-radius:50%;background:#00d4aa;display:inline-block;box-shadow:0 0 8px #00d4aa88"></span>
+        <span style="color:#00d4aa;font-weight:800;font-size:16px">CAIXA ABERTO</span>
+        <span class="muted small" style="margin-left:auto">Aberto ${fmtDate(openCash.openedAt)} · ${openCash.openedBy||''}</span>
+      </div>
+
+      <!-- CARDS GRID PRINCIPAL -->
+      <div class="caixa-grid">
+
+        <!-- Troco -->
+        <div class="caixa-card" style="border-color:#D4AF3744;background:#D4AF3708">
+          <div class="caixa-card-icon">🏦</div>
+          <div class="caixa-card-label">Troco Inicial</div>
+          <div class="caixa-card-value" style="color:#D4AF37">${fmt(openCash.openValue||0)}</div>
+        </div>
+
+        <!-- Dinheiro -->
+        <div class="caixa-card" style="border-color:#00d4aa44;background:#00d4aa08">
+          <div class="caixa-card-icon">💵</div>
+          <div class="caixa-card-label">Dinheiro</div>
+          <div class="caixa-card-value" style="color:#00d4aa">${fmt(totalDinheiro)}</div>
+        </div>
+
+        <!-- Pix -->
+        <div class="caixa-card" style="border-color:#c084fc44;background:#c084fc08">
+          <div class="caixa-card-icon">⚡</div>
+          <div class="caixa-card-label">Pix</div>
+          <div class="caixa-card-value" style="color:#c084fc">${fmt(totalPix)}</div>
+        </div>
+
+        <!-- Fiado em aberto -->
+        <div class="caixa-card" style="border-color:#ff9f1c44;background:#ff9f1c08">
+          <div class="caixa-card-icon">📋</div>
+          <div class="caixa-card-label">Em Aberto (Fiados)</div>
+          <div class="caixa-card-value" style="color:#ff9f1c">${fmt(fiadoSessao)}</div>
+        </div>
+
+        <!-- Vendas canceladas -->
+        <div class="caixa-card" style="border-color:#ff3b5c33;background:#ff3b5c08;cursor:${canceladas.length?'pointer':'default'}"
+          onclick="verCanceladas('${openCash.id}')">
+          <div class="caixa-card-icon">❌</div>
+          <div class="caixa-card-label">Canceladas</div>
+          <div class="caixa-card-value" style="color:${canceladas.length?'#ff3b5c':'#3a4a5a'}">${canceladas.length} venda(s)</div>
+          ${canceladas.length ? `<div style="font-size:12px;color:#ff3b5c;margin-top:2px">${fmt(totalCanceladas)}</div>` : ''}
+        </div>
+
+        <!-- Total em caixa — destaque full width -->
+        <div class="caixa-card caixa-card-full" style="border-color:#60a5fa55;background:linear-gradient(135deg,#1d4ed812,#0a1628)">
+          <div style="display:flex;justify-content:space-between;align-items:center;width:100%">
+            <div>
+              <div class="caixa-card-label" style="font-size:13px">💰 Total em Caixa</div>
+              <div style="font-size:11px;color:#7ba7d4;margin-top:2px">Troco + Vendas reais</div>
+            </div>
+            <div class="caixa-card-value" style="color:#60a5fa;font-size:28px">${fmt(totalCaixa)}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Detalhes por método -->
+      ${Object.keys(byMethod).length > 2 ? `<div style="margin:12px 0 4px">
+        ${Object.entries(byMethod).filter(([m])=>m!=='dinheiro'&&m!=='pix').map(([m,v])=>`
+          <div class="list-row" style="padding:8px 0;border-bottom:1px solid #0f2040">
+            <span class="muted">${methodIcons[m]||'💳'} ${m}</span>
+            <span class="bold">${fmt(v)}</span>
+          </div>`).join('')}
+      </div>` : ''}
+
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px">
+        <span class="muted small">${sales.length} venda(s) nesta sessão</span>
+        <button class="btn-danger" onclick="closeCashBox('${openCash.id}',${totalReal},${openCash.openValue||0})">🔒 Fechar Caixa</button>
+      </div>`;
+  }
+
+  return `<div class="page">
+    <div class="page-header"><h2>💳 Controle de Caixa</h2></div>
+    <div class="card" style="margin-bottom:24px">${openSection}</div>
+    <h3 class="section-title">Histórico de Sessões</h3>
+    ${past.map(s=>`<div class="list-row card" style="margin-bottom:8px">
+      <div><p class="bold small">${fmtDate(s.openedAt)} → ${fmtDate(s.closedAt)}</p><p class="muted small">Aberto: ${s.openedBy||''} · Fechado: ${s.closedBy||''}</p></div>
+      <div style="text-align:right"><p class="green bold">${fmt(s.salesTotal)}</p><p class="muted small">em vendas</p></div>
+    </div>`).join('')}
+  </div>`;
+}
+
+window.verCanceladas = (cashId) => {
+  const canceladas = appData.sales.filter(s => s.cashSessionId === cashId && s.deleted);
+  if (!canceladas.length) return;
+  const total = canceladas.reduce((a,s)=>a+(s.total||0),0);
+  showModal(`<div class="modal-body">
+    <h3 style="color:#ff3b5c">❌ Vendas Canceladas (${canceladas.length})</h3>
+    <div style="font-size:22px;font-weight:800;color:#ff3b5c;margin-bottom:14px">${fmt(total)} estornados</div>
+    <div style="max-height:320px;overflow-y:auto">
+      ${canceladas.map(s=>`<div style="padding:10px 0;border-bottom:1px solid #0f2040">
+        <div style="display:flex;justify-content:space-between">
+          <span class="bold">${s.clientName||'Avulso'}</span>
+          <span class="red bold">${fmt(s.total)}</span>
+        </div>
+        <div class="muted small">${fmtDate(s.date)} · ${s.deletedBy||''}</div>
+        ${s.deleteReason ? `<div class="muted small">Motivo: ${s.deleteReason}</div>` : ''}
+      </div>`).join('')}
+    </div>
+    <button class="btn-secondary" style="margin-top:14px;width:100%" onclick="closeModal()">Fechar</button>
+  </div>`);
+};
+
+window.openCashBox = async () => {
+  const val = parseFloat($('open-val')?.value) || 0;
+  await addDoc(collection(db, 'cashSessions'), { openValue: val, openedAt: serverTimestamp(), openedBy: currentUserData.name, closed: false });
+  toast(`Caixa aberto com ${fmt(val)}`, 'success');
+};
+
+window.closeCashBox = async (id, total, openValue) => {
+  showModal(`<div class="modal-body">
+    <h3>Fechar Caixa</h3>
+    <div class="cash-stats" style="margin:16px 0">
+      <div class="cash-stat"><p class="muted small">Troco</p><p class="bold">${fmt(openValue)}</p></div>
+      <div class="cash-stat"><p class="muted small">Vendas</p><p class="green bold">${fmt(total)}</p></div>
+      <div class="cash-stat"><p class="muted small">Total</p><p style="color:#60a5fa;font-size:20px" class="bold">${fmt(total+openValue)}</p></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModal()">Cancelar</button>
+      <button class="btn-danger" onclick="confirmCloseCash('${id}',${total})">🔒 Confirmar</button>
+    </div>
+  </div>`);
+};
+
+window.confirmCloseCash = async (id, total) => {
+  await updateDoc(doc(db, 'cashSessions', id), { closed: true, closedAt: serverTimestamp(), closedBy: currentUserData.name, salesTotal: total });
+  closeModal(); toast('Caixa fechado!', 'success');
+};
+
+// ── RELATÓRIOS ─────────────────────────────────────────────────────────────
+function renderReports() {
+  const period = window._reportPeriod || 'week';
+  const now = new Date(); const start = new Date();
+  if (period==='day') start.setHours(0,0,0,0);
+  else if (period==='week') start.setDate(start.getDate()-7);
+  else if (period==='month') start.setDate(1);
+  else start.setMonth(0,1);
+
+  const allSales = appData.sales.filter(s => !s.deleted && s.date?.toDate && s.date.toDate() >= start);
+  const salesReais = allSales.filter(s => s.payMethod !== 'fiado');
+  const salesFiado = allSales.filter(s => s.payMethod === 'fiado');
+
+  // Fiados criados no período (via coleção fiados)
+  const fiadosPeriodo = appData.fiados.filter(f => f.date?.toDate && f.date.toDate() >= start);
+  const totalFiadoPeriodo = fiadosPeriodo.reduce((a,f)=>a+(f.total||0),0);
+
+  const totalReais = salesReais.reduce((a,s)=>a+(s.total||0),0);
+  const totalDinheiro = salesReais.filter(s=>s.payMethod==='dinheiro').reduce((a,s)=>a+(s.total||0),0);
+  const totalPix = salesReais.filter(s=>s.payMethod==='pix').reduce((a,s)=>a+(s.total||0),0);
+  const faturamentoBruto = totalReais + totalFiadoPeriodo;
+
+  const byMethod = salesReais.reduce((acc,s)=>{ acc[s.payMethod]=(acc[s.payMethod]||0)+(s.total||0); return acc; },{});
+  const topProds = {}; allSales.forEach(s=>(s.items||[]).forEach(i=>{ topProds[i.name]=(topProds[i.name]||0)+i.qty*i.price; }));
+  const top = Object.entries(topProds).sort((a,b)=>b[1]-a[1]).slice(0,5);
+
+  // All-time open fiados
+  const pendingFiados = appData.fiados.filter(f=>!f.paid);
+  const totalFiadoAberto = pendingFiados.reduce((a,f)=>a+(f.total||0),0);
+
+  // Top 5 debtors
+  const debtByClient = {};
+  pendingFiados.forEach(f => {
+    const k = f.clientId || f.clientName;
+    if (!debtByClient[k]) debtByClient[k] = { name: f.clientName, total: 0 };
+    debtByClient[k].total += f.total || 0;
+  });
+  const top5debtors = Object.values(debtByClient).sort((a,b)=>b.total-a.total).slice(0,5);
+
+  const deleted = appData.sales.filter(s=>s.deleted && s.date?.toDate && s.date.toDate()>=start);
+  const barMax = Math.max(totalDinheiro, totalPix, totalFiadoPeriodo, 1);
+
+  return `<div class="page">
+    <div class="page-header">
+      <h2>📊 Relatórios</h2>
+      <div class="period-btns">
+        ${[['day','Hoje'],['week','7 dias'],['month','Mês'],['year','Ano']].map(([v,l])=>`<button class="period-btn${period===v?' active':''}" onclick="setPeriod('${v}')">${l}</button>`).join('')}
+        ${currentUserData?.role==='owner' ? `<button class="btn-whatsapp" onclick="openEmailReport()">🟢 WhatsApp</button>` : ''}
+      </div>
+    </div>
+
+    <!-- FATURAMENTO BRUTO DESTAQUE -->
+    <div style="background:linear-gradient(135deg,#0f2040,#091428);border:1px solid #D4AF3733;border-radius:16px;padding:18px 20px;margin-bottom:16px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px">
+        <div>
+          <div style="font-size:12px;color:#D4AF37;font-weight:700;text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px">💰 Faturamento Bruto Total</div>
+          <div style="font-size:34px;font-weight:900;color:#D4AF37;line-height:1">${fmt(faturamentoBruto)}</div>
+          <div style="font-size:11px;color:#7ba7d4;margin-top:6px">Inclui valores ainda a receber (fiados). Em caixa: <strong style="color:#00d4aa">${fmt(totalReais)}</strong></div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:11px;color:#7ba7d4;margin-bottom:4px">${allSales.length} vendas no período</div>
+          <div style="font-size:13px;color:#ff9f1c;font-weight:700">📋 ${fmt(totalFiadoPeriodo)} em fiados</div>
+          <div style="font-size:11px;color:#7ba7d4;margin-top:2px">${fiadosPeriodo.length} lançamento(s)</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CARDS GRID -->
+    <div class="cards-grid">
+      ${card('💵','Dinheiro + Pix',fmt(totalReais),'recebido em caixa','#00d4aa')}
+      ${card('🛒','Nº Vendas',allSales.length,'no período','#1d4ed8')}
+      ${card('🎯','Ticket Médio',fmt(allSales.length?faturamentoBruto/allSales.length:0),'por venda','#60a5fa')}
+      ${card('⚠️','Total em Aberto',fmt(totalFiadoAberto),`${pendingFiados.length} clientes`,'#ff9f1c')}
+    </div>
+
+    <!-- GRÁFICO DE BARRAS + TOP PRODUTOS -->
+    <div class="two-col" style="margin-top:20px">
+      <div class="card">
+        <h3 class="section-title">Movimentação por Canal</h3>
+        <!-- Dinheiro -->
+        <div style="margin-bottom:12px">
+          <div class="list-row" style="margin-bottom:5px">
+            <span style="color:#00d4aa;font-size:13px">💵 Dinheiro</span>
+            <span class="bold" style="color:#00d4aa">${fmt(totalDinheiro)}</span>
+          </div>
+          <div style="background:#0a1628;border-radius:6px;height:10px;overflow:hidden">
+            <div style="height:100%;width:${totalDinheiro/barMax*100}%;background:linear-gradient(90deg,#00d4aa,#00a884);border-radius:6px;transition:width .5s"></div>
+          </div>
+        </div>
+        <!-- Pix -->
+        <div style="margin-bottom:12px">
+          <div class="list-row" style="margin-bottom:5px">
+            <span style="color:#c084fc;font-size:13px">⚡ Pix</span>
+            <span class="bold" style="color:#c084fc">${fmt(totalPix)}</span>
+          </div>
+          <div style="background:#0a1628;border-radius:6px;height:10px;overflow:hidden">
+            <div style="height:100%;width:${totalPix/barMax*100}%;background:linear-gradient(90deg,#c084fc,#9333ea);border-radius:6px;transition:width .5s"></div>
+          </div>
+        </div>
+        <!-- Fiado -->
+        <div style="margin-bottom:4px">
+          <div class="list-row" style="margin-bottom:5px">
+            <span style="color:#ff9f1c;font-size:13px">📋 Vendas em Débito</span>
+            <span class="bold" style="color:#ff9f1c">${fmt(totalFiadoPeriodo)}</span>
+          </div>
+          <div style="background:#0a1628;border-radius:6px;height:10px;overflow:hidden">
+            <div style="height:100%;width:${totalFiadoPeriodo/barMax*100}%;background:linear-gradient(90deg,#ff9f1c,#e67e00);border-radius:6px;transition:width .5s"></div>
+          </div>
+        </div>
+        <div style="margin-top:12px;padding-top:10px;border-top:1px solid #0f2040">
+          <div style="font-size:11px;color:#7ba7d4;line-height:1.5">
+            🟢 Dinheiro/Pix = já está no caixa<br>
+            🟠 Débito = faturado, ainda a receber
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3 class="section-title">Top Produtos</h3>
+        ${top.map(([name,val],i)=>`<div class="list-row"><span class="muted">#${i+1} ${name}</span><span class="green bold">${fmt(val)}</span></div>`).join('')}
+        ${top.length===0?'<p class="muted">Sem dados.</p>':''}
+      </div>
+    </div>
+
+    <!-- TOP 5 DEVEDORES -->
+    <div class="card" style="margin-top:16px;border-color:#ff9f1c33">
+      <h3 class="section-title" style="color:#ff9f1c">📋 Top 5 Clientes em Débito</h3>
+      ${top5debtors.length ? top5debtors.map((d,i)=>{
+        const pct = totalFiadoAberto > 0 ? d.total/totalFiadoAberto*100 : 0;
+        return `<div style="margin-bottom:10px">
+          <div class="list-row" style="margin-bottom:4px">
+            <span class="bold" style="font-size:14px">${['🥇','🥈','🥉','4️⃣','5️⃣'][i]} ${d.name}</span>
+            <span style="color:#ff9f1c;font-weight:800;font-size:15px">${fmt(d.total)}</span>
+          </div>
+          <div style="background:#0a1628;border-radius:6px;height:8px;overflow:hidden">
+            <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,#ff9f1c,#e67e00);border-radius:6px"></div>
+          </div>
+        </div>`;
+      }).join('') : '<p class="muted">Nenhum débito em aberto. 🎉</p>'}
+      ${top5debtors.length ? `<div style="text-align:right;margin-top:8px;font-size:12px;color:#7ba7d4">Total geral em aberto: <strong style="color:#ff9f1c">${fmt(totalFiadoAberto)}</strong></div>` : ''}
+    </div>
+
+    ${deleted.length>0?`<div class="card" style="margin-top:16px;border-color:#ff3b5c33">
+      <h3 class="section-title red">Vendas Canceladas no Período (${deleted.length})</h3>
+      ${deleted.map(s=>`<div class="list-row"><span class="muted">${s.clientName} — ${fmtDate(s.date)} — ${s.deletedBy||''}</span><span class="red bold">${fmt(s.total)}</span></div>`).join('')}
+    </div>`:''}
+  </div>`;
+}
+
+window.setPeriod = (p) => { window._reportPeriod = p; refreshTab(); };
+window.openEmailReport = function() {
+  var period = window._reportPeriod || 'week';
+  var now = new Date();
+  var startD = new Date();
+  if (period==='day') startD.setHours(0,0,0,0);
+  else if (period==='week') startD.setDate(startD.getDate()-7);
+  else if (period==='month') startD.setDate(1);
+  else startD.setMonth(0,1);
+  var sales = appData.sales.filter(function(s){ return !s.deleted && s.date?.toDate && s.date.toDate() >= startD; });
+  var totalSales = appData.sales.filter(function(s){ return !s.deleted; });
+  var total = sales.reduce(function(a,s){ return a+(s.total||0); }, 0);
+  var totalGeral = totalSales.reduce(function(a,s){ return a+(s.total||0); }, 0);
+  var pending = appData.fiados.filter(function(f){ return !f.paid; });
+  var totalF = pending.reduce(function(a,f){ return a+(f.total||0); }, 0);
+  var byMethod = {};
+  sales.forEach(function(s){ byMethod[s.payMethod]=(byMethod[s.payMethod]||0)+(s.total||0); });
+  var topProds = {};
+  sales.forEach(function(s){ (s.items||[]).forEach(function(i){ topProds[i.name]=(topProds[i.name]||0)+i.qty*i.price; }); });
+  var top = Object.entries(topProds).sort(function(a,b){return b[1]-a[1];}).slice(0,5);
+  var labels = {day:'Hoje',week:'Últimos 7 dias',month:'Este mês',year:'Este ano'};
+  var periodLabel = labels[period] || '7 dias';
+  var ticketMedio = sales.length ? (total/sales.length).toFixed(2) : '0.00';
+  var dataHoje = now.toLocaleDateString('pt-BR');
+  var payLines = Object.entries(byMethod).map(function(x){ return '   💳 ' + x[0] + ': R$ ' + x[1].toFixed(2); }).join('\n') || '   Sem vendas no período';
+  var topLines = top.length ? top.map(function(x,i){ return '   ' + ['🥇','🥈','🥉','4️⃣','5️⃣'][i] + ' ' + x[0] + ': R$ ' + x[1].toFixed(2); }).join('\n') : '   Sem dados';
+  var canceladas = appData.sales.filter(function(s){ return s.deleted && s.date?.toDate && s.date.toDate() >= startD; });
+  var openCash = appData.cashSessions.find(function(c){ return !c.closed; });
+  var msg = '📊 *Relatório de Vendas PET CHIQUE*\n'
+    + '📅 ' + periodLabel + ' | ' + dataHoje + '\n'
+    + '━━━━━━━━━━━━━━━━━━\n\n'
+    + '💰 *RESUMO FINANCEIRO*\n'
+    + '   ✅ Vendas do período: *R$ ' + total.toFixed(2) + '*\n'
+    + '   🛒 Número de vendas: ' + sales.length + '\n'
+    + '   🎯 Ticket médio: R$ ' + ticketMedio + '\n'
+    + '   ⚠️ Fiados em aberto: *R$ ' + totalF.toFixed(2) + '* (' + pending.length + ' cliente(s))\n'
+    + '   💳 Caixa: ' + (openCash ? 'ABERTO 🟢' : 'FECHADO 🔴') + '\n\n'
+    + '💳 *FORMAS DE PAGAMENTO*\n' + payLines + '\n\n'
+    + '🏆 *TOP PRODUTOS*\n' + topLines + '\n\n'
+    + (canceladas.length ? '❌ *CANCELADAS NO PERÍODO:* ' + canceladas.length + '\n\n' : '')
+    + '━━━━━━━━━━━━━━━━━━\n'
+    + '👑 *Pet Chique — Adriano Sampaio*\n'
+    + '_Sistema de Gestão_';
+  window._wppMsg = msg;
+  var html = '<div class="modal-body">';
+  html += '<h3>🟢 Relatório via WhatsApp</h3>';
+  html += '<p class="muted" style="margin-bottom:12px">Relatório formatado com 📊 para envio automático.</p>';
+  html += '<div style="background:#25d36615;border:1px solid #25d36633;border-radius:10px;padding:12px;margin-bottom:14px;font-size:12px;color:#25d366;white-space:pre-line;max-height:180px;overflow-y:auto">' + msg + '</div>';
+  html += '<div class="form-group"><label>Número WhatsApp com DDD</label>';
+  html += '<input id="wpp-number" class="input" type="tel" placeholder="85999001122"/>';
+  html += '<p class="muted small" style="margin-top:4px">Ex: 85999001122 (deixe vazio para escolher na hora)</p></div>';
+  html += '<div class="modal-actions">';
+  html += '<button class="btn-secondary" onclick="closeModal()">Cancelar</button>';
+  html += '<button class="btn-success" onclick="sendWhatsApp()">🟢 Abrir WhatsApp</button>';
+  html += '</div></div>';
+  showModal(html);
+};
+
+window.sendWhatsApp = function() {
+  var numEl = document.getElementById('wpp-number');
+  var num = numEl ? numEl.value.replace(/[^0-9]/g,'') : '';
+  var msg = window._wppMsg || '📊 Relatório PET CHIQUE';
+  var url = num
+    ? 'https://wa.me/55' + num + '?text=' + encodeURIComponent(msg)
+    : 'https://wa.me/?text=' + encodeURIComponent(msg);
+  window.open(url, '_blank');
+  closeModal();
+  toast('WhatsApp aberto! ✅', 'success');
+};
+
+// ── CONFIG ─────────────────────────────────────────────────────────────────
+function renderConfig() {
+  const isOwner = currentUserData?.role === 'owner';
+  const employees = appData.users.filter(u => u.role !== 'owner');
+
+  return `<div class="page">
+    <div class="page-header"><h2>⚙️ Configurações</h2></div>
+    <div class="two-col">
+      <div class="card">
+        <h3 class="section-title">Meu Perfil</h3>
+        <div class="form-group"><label>Nome</label><input id="cfg-name" class="input" value="${currentUserData?.name||''}"/></div>
+        <div class="form-group"><label>E-mail</label><input id="cfg-email" class="input" value="${currentUserData?.email||''}" disabled style="opacity:.5"/></div>
+        <button class="btn-primary" onclick="saveProfile()">✓ Salvar Nome</button>
+      </div>
+      <div class="card">
+        <h3 class="section-title">Alterar Senha</h3>
+        <div class="form-group"><label>Nova Senha</label><input id="cfg-pw1" type="password" class="input" placeholder="Nova senha (min. 6 chars)"/></div>
+        <div class="form-group"><label>Confirmar</label><input id="cfg-pw2" type="password" class="input" placeholder="Repita a senha"/></div>
+        <button class="btn-primary" onclick="changePassword()">✓ Alterar Senha</button>
+      </div>
+    </div>
+
+    ${isOwner ? `
+    <!-- FUNCIONÁRIOS -->
+    <div class="card" style="margin-top:20px;border-color:#1d4ed844">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+        <h3 class="section-title" style="margin:0">👥 Funcionários</h3>
+        <button class="btn-primary" onclick="openAddEmployeeModal()">+ Cadastrar</button>
+      </div>
+      ${employees.length ? employees.map(u=>`<div class="list-row" style="padding:12px 0;border-bottom:1px solid #0d1117">
+        <div style="display:flex;align-items:center;gap:12px">
+          <div style="width:36px;height:36px;background:linear-gradient(135deg,#1d4ed8,#2563eb);border-radius:50%;display:flex;align-items:center;justify-content:center">👤</div>
+          <div><div class="bold">${u.name}</div><div class="muted small">${u.email}</div></div>
+        </div>
+        <button class="btn-icon" onclick="openEditEmployeeModal('${u.id}','${u.name}','${u.email}')">✏️</button>
+      </div>`).join('') : '<p class="muted">Nenhum funcionário cadastrado.</p>'}
+    </div>
+
+    <!-- ZONA DE PODER -->
+    <div class="card" style="margin-top:20px;border-color:#ff9f1c44;background:#ff9f1c06">
+      <h3 class="section-title" style="color:#ff9f1c;margin-bottom:6px">⚡ Gestão do Sistema</h3>
+      <p class="muted small" style="margin-bottom:16px">Clientes, Produtos e Fiados nunca são apagados por estes comandos.</p>
+      <div style="display:flex;flex-direction:column;gap:10px">
+
+        <!-- ZERAR DIA -->
+        <button onclick="zerarDia()"
+          style="padding:15px 18px;background:#ff9f1c18;border:1px solid #ff9f1c55;border-radius:14px;color:#ff9f1c;font-weight:800;font-size:15px;cursor:pointer;font-family:inherit;text-align:left;display:flex;justify-content:space-between;align-items:center"
+          ontouchstart="this.style.transform='scale(.98)'" ontouchend="this.style.transform='scale(1)'">
+          <span>📅 Zerar Movimentação Diária</span>
+          <span style="font-size:12px;font-weight:400;color:#ff9f1c88">vendas + caixa do dia</span>
+        </button>
+
+        <!-- LIMPAR CANCELADAS -->
+        <button onclick="limparCanceladas()"
+          style="padding:15px 18px;background:#7ba7d418;border:1px solid #7ba7d444;border-radius:14px;color:#7ba7d4;font-weight:700;font-size:14px;cursor:pointer;font-family:inherit;text-align:left"
+          ontouchstart="this.style.transform='scale(.98)'" ontouchend="this.style.transform='scale(1)'">
+          🗑️ Limpar Vendas Canceladas
+        </button>
+
+        <!-- ZERAR SISTEMA COMPLETO -->
+        <button onclick="zerarSistema()"
+          style="padding:15px 18px;background:#ff3b5c18;border:1px solid #ff3b5c55;border-radius:14px;color:#ff3b5c;font-weight:800;font-size:14px;cursor:pointer;font-family:inherit;text-align:left"
+          ontouchstart="this.style.transform='scale(.98)'" ontouchend="this.style.transform='scale(1)'">
+          🔴 Zerar Sistema Completo <span style="font-size:11px;font-weight:400"> — IRREVERSÍVEL</span>
+        </button>
+      </div>
+    </div>
+    ` : ''}
+  </div>`;
+}
+
+window.openAddEmployeeModal = () => {
+  showModal(`<div class="modal-body">
+    <h3>👤 Cadastrar Funcionário</h3>
+    <p class="muted small" style="margin-bottom:14px">O funcionário usará apenas o nome para entrar no sistema.</p>
+    <div class="form-group"><label>Nome Completo *</label><input id="emp-name" class="input" placeholder="Ex: Maria Silva"/></div>
+    <div class="form-group"><label>E-mail (para login) *</label><input id="emp-email" class="input" type="email" placeholder="funcionario@email.com"/></div>
+    <div class="form-group"><label>Senha *</label><input id="emp-pass" type="password" class="input" placeholder="Mín. 6 caracteres"/></div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModal()">Cancelar</button>
+      <button class="btn-primary" onclick="createEmployee()">✓ Cadastrar</button>
+    </div>
+  </div>`);
+};
+
+window.createEmployee = async () => {
+  const name = $('emp-name')?.value?.trim();
+  const email = $('emp-email')?.value?.trim();
+  const pass = $('emp-pass')?.value;
+  if (!name || !email || !pass) { toast('Preencha todos os campos.', 'error'); return; }
+  if (pass.length < 6) { toast('Senha mínimo 6 caracteres.', 'error'); return; }
+  try {
+    // Save current user to restore session
+    const ownerEmail = currentUser.email;
+    const { createUserWithEmailAndPassword: createUser } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js");
+    const cred = await createUser(auth, email, pass);
+    await setDoc(doc(db, 'users', cred.user.uid), { name, email, role: 'user', createdAt: serverTimestamp() });
+    await auditLog('Cadastrar Funcionário', '—', name, { email });
+    // Sign back in as owner
+    await signOut(auth);
+    toast('Funcionário cadastrado! Faça login novamente.', 'success');
+    renderLogin();
+  } catch(e) {
+    toast('Erro: ' + (e.code === 'auth/email-already-in-use' ? 'E-mail já cadastrado.' : e.message), 'error');
+  }
+};
+
+window.openEditEmployeeModal = (uid, name, email) => {
+  showModal(`<div class="modal-body">
+    <h3>✏️ Editar Funcionário</h3>
+    <div class="form-group"><label>Nome *</label><input id="edit-emp-name" class="input" value="${name}"/></div>
+    <div class="form-group"><label>E-mail (referência)</label><input class="input" value="${email}" disabled style="opacity:.5"/></div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModal()">Cancelar</button>
+      <button class="btn-primary" onclick="saveEmployeeName('${uid}','${name}')">✓ Salvar Nome</button>
+    </div>
+  </div>`);
+};
+
+window.saveEmployeeName = async (uid, oldName) => {
+  const name = $('edit-emp-name')?.value?.trim();
+  if (!name) { toast('Nome obrigatório.', 'error'); return; }
+  await updateDoc(doc(db, 'users', uid), { name });
+  await auditLog('Editar Funcionário', oldName, name);
+  closeModal();
+  toast('Nome atualizado!', 'success');
+};
+
+window.limparCanceladas = () => {
+  const deleted = appData.sales.filter(s => s.deleted);
+  if (!deleted.length) { toast('Nenhuma venda cancelada para limpar.', 'warning'); return; }
+  showModal(`<div class="modal-body">
+    <h3 style="color:#ff9f1c">🗑️ Limpar Vendas Canceladas</h3>
+    <p class="muted">Serão removidas permanentemente <strong>${deleted.length}</strong> venda(s) cancelada(s) do histórico.</p>
+    <p class="muted small" style="margin-top:8px">Esta ação é exclusiva do proprietário e irreversível.</p>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModal()">Cancelar</button>
+      <button class="btn-danger" onclick="confirmarLimparCanceladas()">🗑️ Confirmar Limpeza</button>
+    </div>
+  </div>`);
+};
+
+window.confirmarLimparCanceladas = async () => {
+  if (currentUserData?.role !== 'owner') { toast('Apenas o proprietário pode executar esta ação.', 'error'); return; }
+  const deleted = appData.sales.filter(s => s.deleted);
+  for (const s of deleted) await deleteDoc(doc(db, 'sales', s.id));
+  await auditLog('Limpar Canceladas', `${deleted.length} registros`, '0 registros');
+  closeModal();
+  toast(`${deleted.length} venda(s) cancelada(s) removida(s)!`, 'warning');
+};
+
+window.zerarSistema = () => {
+  if (currentUserData?.role !== 'owner') { toast('Apenas o proprietário pode zerar o sistema.', 'error'); return; }
+  showModal(`<div class="modal-body" style="border-color:#ff3b5c">
+    <h3 style="color:#ff3b5c">🔴 ZERAR SISTEMA</h3>
+    <div style="background:#ff3b5c15;border:1px solid #ff3b5c44;border-radius:10px;padding:14px;margin-bottom:14px">
+      <p style="color:#ff3b5c;font-weight:700;margin-bottom:8px">⚠️ AÇÃO IRREVERSÍVEL!</p>
+      <p class="muted small">O que será apagado:<br>• Todas as vendas (ativas e canceladas)<br>• Todas as sessões de caixa</p>
+      <p class="muted small" style="margin-top:8px">O que será MANTIDO:<br>• Clientes • Produtos • Fiados • Funcionários</p>
+    </div>
+    <div class="form-group"><label style="color:#ff3b5c">Digite <strong>ZERAR</strong> para confirmar</label><input id="confirm-zerar" class="input" placeholder="ZERAR"/></div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModal()">Cancelar</button>
+      <button class="btn-danger" onclick="confirmarZerar()">🔴 ZERAR AGORA</button>
+    </div>
+  </div>`);
+};
+
+window.confirmarZerar = async () => {
+  if ($('confirm-zerar')?.value !== 'ZERAR') { toast('Digite ZERAR para confirmar.', 'error'); return; }
+  if (currentUserData?.role !== 'owner') { toast('Acesso negado.', 'error'); return; }
+  try {
+    const salesCount = appData.sales.length;
+    const cashCount = appData.cashSessions.length;
+    for (const s of appData.sales) await deleteDoc(doc(db, 'sales', s.id));
+    for (const c of appData.cashSessions) await deleteDoc(doc(db, 'cashSessions', c.id));
+    await auditLog('ZERAR SISTEMA', `${salesCount} vendas, ${cashCount} sessões de caixa`, 'Sistema zerado', { executadoPor: currentUserData.name });
+    closeModal();
+    toast('Sistema zerado com sucesso!', 'warning');
+    activeTab = 'dashboard'; refreshTab();
+  } catch(e) { toast('Erro ao zerar: ' + e.message, 'error'); }
+};
+
+window.zerarDia = () => {
+  if (currentUserData?.role !== 'owner') { toast('Apenas o proprietário pode executar esta ação.', 'error'); return; }
+  const today = new Date(); today.setHours(0,0,0,0);
+  const salesHoje = appData.sales.filter(s => s.date?.toDate && s.date.toDate() >= today);
+  const cashHoje = appData.cashSessions.filter(c => c.openedAt?.toDate && c.openedAt.toDate() >= today);
+  showModal(`<div class="modal-body" style="border-color:#ff9f1c">
+    <h3 style="color:#ff9f1c">📅 Zerar Movimentação Diária</h3>
+    <div style="background:#ff9f1c12;border:1px solid #ff9f1c33;border-radius:12px;padding:14px;margin-bottom:14px">
+      <p style="color:#ff9f1c;font-weight:700;margin-bottom:8px">O que será apagado:</p>
+      <p class="muted small">• ${salesHoje.length} venda(s) de hoje<br>• ${cashHoje.length} sessão(ões) de caixa de hoje</p>
+      <p style="color:#00d4aa;font-weight:700;margin:10px 0 6px">O que será MANTIDO:</p>
+      <p class="muted small">✅ Clientes · ✅ Produtos · ✅ Fiados/Débitos · ✅ Histórico anterior</p>
+    </div>
+    <div class="form-group"><label style="color:#ff9f1c">Digite <strong>HOJE</strong> para confirmar</label><input id="confirm-dia" class="input" placeholder="HOJE"/></div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModal()">Cancelar</button>
+      <button style="padding:12px 20px;background:#ff9f1c;border:none;border-radius:10px;color:#000;font-weight:800;cursor:pointer;font-family:inherit" onclick="confirmarZerarDia()">📅 Zerar Dia</button>
+    </div>
+  </div>`);
+};
+
+window.confirmarZerarDia = async () => {
+  if ($('confirm-dia')?.value !== 'HOJE') { toast('Digite HOJE para confirmar.', 'error'); return; }
+  if (currentUserData?.role !== 'owner') { toast('Acesso negado.', 'error'); return; }
+  try {
+    const today = new Date(); today.setHours(0,0,0,0);
+    const salesHoje = appData.sales.filter(s => s.date?.toDate && s.date.toDate() >= today);
+    const cashHoje = appData.cashSessions.filter(c => c.openedAt?.toDate && c.openedAt.toDate() >= today);
+    for (const s of salesHoje) await deleteDoc(doc(db, 'sales', s.id));
+    for (const c of cashHoje) await deleteDoc(doc(db, 'cashSessions', c.id));
+    closeModal();
+    toast(`Dia zerado: ${salesHoje.length} venda(s) e ${cashHoje.length} sessão(ões) removidas.`, 'warning');
+    activeTab = 'dashboard'; refreshTab();
+  } catch(e) { toast('Erro: ' + e.message, 'error'); }
+};
+
+window.saveProfile = async () => {
+  const name = $('cfg-name')?.value?.trim();
+  if (!name) { toast('Nome é obrigatório.', 'error'); return; }
+  await updateDoc(doc(db, 'users', currentUser.uid), { name });
+  currentUserData.name = name;
+  toast('Perfil atualizado!', 'success');
+};
+
+window.changePassword = async () => {
+  const pw1 = $('cfg-pw1')?.value; const pw2 = $('cfg-pw2')?.value;
+  if (pw1 !== pw2) { toast('Senhas não conferem.', 'error'); return; }
+  if (pw1.length < 6) { toast('Senha muito curta (min. 6).', 'error'); return; }
+  try {
+    const { updatePassword } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js");
+    await updatePassword(currentUser, pw1);
+    toast('Senha alterada!', 'success');
+  } catch (e) { toast('Erro: faça login novamente e tente.', 'error'); }
+};
+
+// ── MODAL ──────────────────────────────────────────────────────────────────
+function showModal(html) { const ma = $('modal-area'); if (ma) { ma.innerHTML = `<div class="modal-overlay" onclick="if(event.target===this)closeModal()">${html}</div>`; } }
+window.closeModal = () => { const ma = $('modal-area'); if (ma) ma.innerHTML = ''; };
+
+// ── BIND EVENTS ────────────────────────────────────────────────────────────
+function bindEvents() {
+  if (activeTab === 'nova-venda') { cart = []; isFiado = false; payMethod = 'dinheiro'; renderCart(); }
+}
+
+</script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Sora',sans-serif;background:#040c18;color:#e8f0ff;min-height:100vh}
+
+
+
+/* VIBRANT GLOWS */
+.stat-card{transition:.2s}
+.stat-card:hover{transform:translateY(-2px);box-shadow:0 8px 30px rgba(29,78,216,.15)}
+.prod-item:hover{border-color:#1d4ed8;box-shadow:0 0 12px rgba(29,78,216,.2)}
+.btn-primary:hover{filter:brightness(1.15);transform:translateY(-1px)}
+.btn-success:hover{filter:brightness(1.1)}
+.nav-item.active{border-left:3px solid #1d4ed8}
+.sidebar{border-right:1px solid #0f2040}
+body{background:#040c18}
+
+/* MOBILE HEADER */
+.mobile-header{display:none;justify-content:space-between;align-items:center;background:#060e1a;border-bottom:1px solid #0f2040;padding:12px 16px;position:sticky;top:0;z-index:50}
+@media(max-width:768px){.mobile-header{display:flex}}
+
+/* LOGIN */
+.login-bg{min-height:100vh;background:radial-gradient(ellipse at 60% 0%,#0a1628 0%,#060e1a 40%,#040c18 70%);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;gap:16px}
+.login-card{width:100%;max-width:380px;background:rgba(26,31,46,.95);border:1px solid #132254;border-radius:24px;padding:36px;box-shadow:0 32px 100px rgba(29,78,216,.35),0 0 60px rgba(37,99,235,.15)}
+.login-logo{text-align:center;font-size:56px;margin-bottom:12px}
+.login-title{text-align:center;font-size:28px;font-weight:800;letter-spacing:-.5px}
+.login-sub{text-align:center;color:#60a5fa;font-size:13px;font-weight:600;margin-top:4px;margin-bottom:16px}
+.login-owner-box{display:flex;align-items:center;gap:10px;background:#1d4ed811;border:1px solid #1d4ed833;border-radius:12px;padding:10px 14px;margin-bottom:20px}
+.login-crown{font-size:22px}
+.login-owner-name{font-weight:800;font-size:14px;color:#e8f0ff}
+.login-owner-role{font-size:11px;color:#60a5fa;font-weight:600}
+.login-tabs{display:flex;gap:6px;margin-bottom:20px;background:#040c18;border-radius:12px;padding:4px}
+.login-tab{flex:1;padding:8px;border:none;border-radius:9px;cursor:pointer;font-family:inherit;font-weight:700;font-size:13px;background:transparent;color:#2a5298;transition:.15s}
+.login-tab.active{background:#1d4ed8;color:#fff}
+.login-hint{text-align:center;color:#2a5298;font-size:11px;margin-top:20px;line-height:1.6}
+.err-msg{color:#ff3b5c;font-size:13px;text-align:center;margin-bottom:12px;min-height:18px}
+.login-footer-legal{max-width:380px;text-align:center;color:#2a5298;font-size:10px;line-height:1.6;padding:0 10px}
+.login-footer-legal strong{color:#60a5fa}
+/* LEGAL FOOTER (app) */
+.legal-footer{margin-top:40px;padding:14px 0 8px;border-top:1px solid #0f2040;color:#2a5298;font-size:10px;text-align:center;line-height:1.7}
+.legal-footer strong{color:#60a5fa}
+
+/* APP */
+.app-shell{display:flex;min-height:100vh}
+.sidebar{width:220px;background:#060e1a;border-right:1px solid #0f2040;display:flex;flex-direction:column;position:fixed;top:0;left:0;height:100vh;z-index:100}
+.sidebar-top{padding:24px 16px 16px}
+.brand{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.brand-icon{font-size:28px}
+.brand-name{font-weight:800;font-size:15px;letter-spacing:-.3px}
+.brand-sub{color:#2a5298;font-size:10px}
+.user-badge{background:#040c18;border-radius:10px;padding:8px 12px;display:flex;align-items:center;gap:8px}
+.user-avatar{width:28px;height:28px;background:linear-gradient(135deg,#1d4ed8,#2563eb);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
+.user-avatar.owner{background:linear-gradient(135deg,#ff9f1c,#e67e00)}
+.user-name{font-size:12px;font-weight:700;color:#e8f0ff}
+.user-role{font-size:10px;color:#60a5fa;font-weight:600}
+.nav-items{flex:1;overflow-y:auto;padding:0 8px}
+.nav-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;cursor:pointer;color:#2a5298;font-weight:600;font-size:14px;margin-bottom:3px;transition:.15s;position:relative}
+.nav-item:hover{background:#0f2040;color:#7ba7d4}
+.nav-item.active{background:linear-gradient(135deg,#1d4ed844,#2563eb33);color:#e8f0ff}
+.nav-icon{font-size:16px}
+.nav-badge{margin-left:auto;background:#ff9f1c;color:#000;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800}
+.nav-dot{margin-left:auto;width:8px;height:8px;border-radius:50%}
+.nav-dot.green{background:#00d4aa;box-shadow:0 0 6px #00d4aa}
+.nav-dot.red{background:#ff3b5c}
+.btn-logout{margin:8px;padding:10px 12px;border-radius:10px;border:1px solid #0f2040;background:transparent;color:#2a5298;cursor:pointer;font-family:inherit;font-weight:600;font-size:14px;text-align:left;margin-bottom:20px}
+.main-area{margin-left:220px;flex:1;padding:28px;min-height:100vh}
+
+/* PAGES */
+.page{max-width:1100px}
+.page-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;flex-wrap:wrap;gap:12px}
+.page-header h2{font-size:22px;font-weight:800}
+
+/* CARDS */
+.cards-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:24px}
+.cards-grid-3{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}
+.stat-card{background:#0a1628;border:1px solid #132254;border-radius:16px;padding:20px;position:relative;overflow:hidden}
+.stat-icon{font-size:22px;margin-bottom:10px}
+.stat-label{font-size:11px;color:#7ba7d4;font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+.stat-value{font-size:22px;font-weight:800;margin:6px 0 2px}
+.stat-sub{font-size:12px;color:#2a5298}
+.card{background:#0a1628;border:1px solid #132254;border-radius:16px;padding:20px}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.alert-box{background:#ff9f1c15;border:1px solid #ff9f1c44;border-radius:12px;padding:14px 18px;margin-bottom:20px;font-size:14px}
+
+/* FORMS */
+.form-group{margin-bottom:14px}
+.form-group label{display:block;color:#7ba7d4;font-size:13px;font-weight:600;margin-bottom:6px}
+.input{width:100%;padding:10px 14px;background:#040c18;border:1px solid #132254;border-radius:10px;color:#e8f0ff;font-size:14px;outline:none;font-family:inherit}
+.input:focus{border-color:#60a5fa}
+
+/* BUTTONS */
+.btn-primary{background:linear-gradient(135deg,#1d4ed8,#2563eb);border:none;border-radius:10px;padding:10px 20px;color:#fff;font-weight:700;cursor:pointer;font-size:14px;font-family:inherit;display:inline-flex;align-items:center;gap:6px}
+.btn-success{background:linear-gradient(135deg,#00d4aa,#00b894);border:none;border-radius:10px;padding:10px 20px;color:#fff;font-weight:700;cursor:pointer;font-size:14px;font-family:inherit}
+.btn-danger{background:linear-gradient(135deg,#ff3b5c,#e0002a);border:none;border-radius:10px;padding:10px 20px;color:#fff;font-weight:700;cursor:pointer;font-size:14px;font-family:inherit}
+.btn-secondary{background:#0f2040;border:none;border-radius:10px;padding:10px 20px;color:#7ba7d4;font-weight:700;cursor:pointer;font-size:14px;font-family:inherit}
+.btn-full{width:100%;justify-content:center;padding:13px}
+.btn-icon{background:#0f2040;border:none;border-radius:8px;padding:6px 10px;cursor:pointer;font-size:15px}
+.btn-icon-danger{background:#ff3b5c22;border:none;border-radius:8px;padding:6px 10px;cursor:pointer;font-size:15px}
+.btn-sm-danger{background:#ff3b5c22;border:1px solid #ff3b5c44;border-radius:8px;padding:5px 12px;color:#ff3b5c;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;margin-top:8px}
+
+/* SALE */
+.sale-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.barcode-row{display:flex;gap:6px;align-items:center;margin-bottom:6px}
+.barcode-row .input{flex:1}
+.prod-list{max-height:340px;overflow-y:auto;margin-top:4px;display:flex;flex-direction:column;gap:6px}
+.prod-item{background:#0a1628;border:1px solid #132254;border-radius:12px;padding:12px 14px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;transition:.15s}
+.prod-item:hover{border-color:#60a5fa}
+.prod-item.out-of-stock{border-color:#ff3b5c33;opacity:.7}
+.prod-name{font-weight:600;font-size:14px}
+.prod-meta{color:#2a5298;font-size:12px;margin-top:2px}
+.prod-price{color:#60a5fa;font-weight:700}
+.pay-methods{display:flex;gap:8px;flex-wrap:wrap}
+.pay-btn{flex:1;min-width:70px;padding:8px;border-radius:10px;border:2px solid #0f2040;background:#040c18;color:#2a5298;cursor:pointer;font-weight:600;font-size:13px;font-family:inherit;text-transform:capitalize;transition:.15s}
+.pay-btn.active{border-color:#60a5fa;background:#1d4ed833;color:#60a5fa}
+.btn-fiado{width:100%;padding:10px;border-radius:10px;border:2px solid #0f2040;background:#040c18;color:#2a5298;cursor:pointer;font-weight:700;font-size:14px;font-family:inherit;transition:.15s}
+.btn-fiado.active{border-color:#ff9f1c;background:#ff9f1c22;color:#ff9f1c}
+.cart-item{display:flex;align-items:center;gap:6px;margin-bottom:8px;background:#040c18;border-radius:10px;padding:7px 10px}
+.cart-name{font-size:12px;color:#e8f0ff;font-weight:600}
+.cart-qty{width:65px!important;padding:5px 7px!important;text-align:center}
+.cart-price{width:85px!important;padding:5px 7px!important}
+.cart-total-row{border-top:1px solid #0f2040;padding-top:10px;margin-top:6px}
+.lucro-row{display:flex;justify-content:space-between;align-items:center;margin-top:6px;padding-top:6px;border-top:1px dashed #0f2040}
+.lucro-badge{background:#00d4aa18;border:1px solid #00d4aa44;border-radius:8px;padding:3px 10px;color:#00d4aa;font-weight:700;font-size:13px}
+.lucro-estoque-card{background:#00d4aa0d;border:1px solid #00d4aa33;border-radius:12px;padding:12px 18px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;font-weight:600;color:#7ba7d4}
+/* PRODUCTS */
+.prod-row{background:#0a1628;border:1px solid #132254;border-radius:12px;padding:12px 16px;display:flex;align-items:center;gap:12px;margin-bottom:7px}
+.prod-row.low-stock{border-color:#ff9f1c44}
+.prod-row.no-stock{border-color:#ff3b5c44;background:#ff3b5c08}
+.prod-row-name{flex:1;font-weight:600}
+
+/* LISTS */
+.list-container{display:flex;flex-direction:column;gap:10px}
+.list-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #0d1117;font-size:14px}
+.sale-row{background:#0a1628;border:1px solid #132254;border-radius:14px;padding:14px 18px;display:flex;align-items:center;gap:14px}
+.sale-row.deleted{opacity:.6;border-color:#ff3b5c33}
+.sale-info{flex:1}
+.sale-header{display:flex;align-items:center;gap:8px;margin-bottom:3px}
+.sale-meta{color:#2a5298;font-size:12px}
+.sale-note{color:#7ba7d4;font-size:12px;margin-top:2px}
+.sale-cancel{color:#ff3b5c;font-size:12px;margin-top:2px}
+.sale-items{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+.sale-right{text-align:right;flex-shrink:0}
+.sale-total{font-size:18px;font-weight:800}
+.item-tag{background:#040c18;border:1px solid #132254;border-radius:6px;padding:2px 7px;font-size:11px;color:#7ba7d4}
+.section-title{color:#7ba7d4;font-size:14px;font-weight:700;margin-bottom:14px}
+
+/* BADGES */
+.badge{border-radius:6px;padding:2px 8px;font-size:11px;font-weight:700}
+.badge.red{background:#ff3b5c22;color:#ff3b5c}
+.badge.yellow{background:#ff9f1c22;color:#ff9f1c}
+
+/* CLIENTS */
+.client-card{background:#0a1628;border:1px solid #132254;border-radius:16px;padding:18px}
+.client-card.has-fiado{border-color:#ff9f1c44}
+.client-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px}
+.fiado-badge{background:#ff9f1c15;border:1px solid #ff9f1c33;border-radius:8px;padding:6px 12px;color:#ff9f1c;font-weight:700;font-size:13px}
+.ok-badge{color:#00d4aa;font-size:13px;font-weight:600}
+
+/* FIADOS */
+.fiado-summary{display:flex;gap:14px;margin-bottom:20px;flex-wrap:wrap}
+.fiado-stat{border-radius:12px;padding:10px 20px;font-weight:700}
+.fiado-stat.yellow{background:#ff9f1c15;border:1px solid #ff9f1c44;color:#ff9f1c}
+.fiado-stat.green{background:#00d4aa15;border:1px solid #00d4aa44;color:#00d4aa}
+.fiado-row{background:#0a1628;border:1px solid #ff9f1c33;border-radius:14px;padding:16px 20px;display:flex;align-items:center;gap:14px;margin-bottom:10px}
+.fiado-row.paid{border-color:#00d4aa33;opacity:.7}
+.fiado-info{flex:1}
+
+
+
+/* CASH */
+.open-cash{border-color:#00d4aa44!important}
+.cash-header{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.cash-dot{width:10px;height:10px;background:#00d4aa;border-radius:50%;box-shadow:0 0 8px #00d4aa}
+.caixa-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:6px}
+@media(max-width:480px){.caixa-grid{grid-template-columns:1fr 1fr}}
+.caixa-card{background:#0a1628;border:1px solid #132254;border-radius:14px;padding:14px 12px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:4px}
+.caixa-card-full{grid-column:1/-1;flex-direction:row;text-align:left;padding:14px 18px}
+.caixa-card-icon{font-size:22px;line-height:1}
+.caixa-card-label{font-size:11px;color:#7ba7d4;font-weight:600;text-transform:uppercase;letter-spacing:.4px}
+.caixa-card-value{font-size:20px;font-weight:800;line-height:1.2}
+@media(max-width:400px){.caixa-card-value{font-size:17px}}
+.cash-stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin:14px 0}
+.cash-stat{background:#040c18;border-radius:10px;padding:12px;text-align:center}
+
+/* REPORTS */
+.period-btns{display:flex;gap:8px;flex-wrap:wrap}
+.period-btn{padding:8px 14px;border-radius:10px;border:2px solid #0f2040;background:#040c18;color:#2a5298;cursor:pointer;font-weight:700;font-size:13px;font-family:inherit}
+.period-btn.active{border-color:#60a5fa;background:#1d4ed833;color:#60a5fa}
+.progress-bar{height:6px;background:#040c18;border-radius:4px;margin-bottom:12px}
+.progress-bar div{height:100%;border-radius:4px;transition:.3s}
+
+/* MODAL */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px}
+.modal-body{background:#0a1628;border:1px solid #132254;border-radius:20px;padding:28px;width:100%;max-width:480px;max-height:90vh;overflow-y:auto}
+.modal-body h3{margin-bottom:16px;font-size:19px;font-weight:700}
+.modal-actions{display:flex;gap:10px;margin-top:16px}
+
+/* TOAST */
+.toasts{position:fixed;top:20px;right:20px;z-index:9999;display:flex;flex-direction:column;gap:8px}
+.toast{background:#00d4aa;color:#fff;padding:11px 18px;border-radius:12px;font-size:14px;font-weight:600;box-shadow:0 8px 32px rgba(0,0,0,.25);display:flex;align-items:center;gap:8px;animation:slideIn .3s ease;min-width:220px}
+.toast-error{background:#ff3b5c}
+.toast-warning{background:#ff9f1c;color:#000}
+@keyframes slideIn{from{transform:translateX(60px);opacity:0}to{transform:translateX(0);opacity:1}}
+
+/* UTILS */
+.bold{font-weight:700}
+.muted{color:#2a5298}
+.small{font-size:12px}
+.green{color:#00d4aa}
+.yellow{color:#ff9f1c}
+.red{color:#ff3b5c}
+
+/* FIADO DRILL-DOWN LIST */
+.fd-row{display:flex;align-items:center;justify-content:space-between;background:#0a1628;border:1px solid #132254;border-radius:16px;padding:16px 18px;margin-bottom:10px;cursor:pointer;transition:.15s;-webkit-tap-highlight-color:transparent;min-height:64px}
+.fd-row:active{background:#0f2040;transform:scale(.98)}
+.fd-name{font-size:16px;font-weight:700;color:#e8f0ff}
+.fd-right{display:flex;align-items:center;gap:10px}
+.fd-valor{font-size:18px;font-weight:800}
+.fd-red{color:#ff3b5c}
+.fd-ok{color:#00d4aa}
+.fd-arrow{font-size:22px;color:#2a5298;font-weight:300}
+
+/* FIADOS VERMELHO */
+.fiado-row-red{background:#1a0a0e;border:2px solid #ff3b5c66;border-radius:16px;padding:18px 20px;margin-bottom:14px}
+.fiado-debt-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px}
+.fiado-debt-items{background:#040c18;border-radius:10px;padding:10px 14px;margin-bottom:12px;display:flex;flex-direction:column;gap:8px}
+.fiado-debt-item{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;padding-bottom:6px;border-bottom:1px solid #0f2040}
+.fiado-debt-item:last-child{border-bottom:none;padding-bottom:0}
+.fiado-debt-actions{display:flex;gap:8px;flex-wrap:wrap}
+.fiado-stat.red-stat{background:#ff3b5c15;border:1px solid #ff3b5c44;color:#ff3b5c}
+
+/* PDV PAYMENT BUTTONS */
+.pdv-pay-btn{background:#0a1628;border:2px solid #132254;border-radius:14px;padding:14px 8px;color:#7ba7d4;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;text-align:center;line-height:1.6;transition:background .15s,border-color .15s,transform .1s;-webkit-tap-highlight-color:transparent;width:100%}
+.pdv-pay-btn:active{transform:scale(.95)}
+.pdv-pay-btn.active{background:#1d4ed822;border-color:#60a5fa;color:#e8f0ff}
+.pdv-pay-btn[data-method="dinheiro"].active{border-color:#00d4aa;background:#00d4aa18;color:#00d4aa}
+.pdv-pay-btn[data-method="pix"].active{border-color:#7b5ea7;background:#7b5ea718;color:#c084fc}
+.pdv-pay-btn[data-method="fiado"].active{border-color:#ff9f1c;background:#ff9f1c18;color:#ff9f1c}
+.pdv-finalize-btn{width:100%;padding:16px;background:linear-gradient(135deg,#1d9f4f,#166b36);border:none;border-radius:14px;color:#fff;font-size:17px;font-weight:800;cursor:pointer;font-family:inherit;letter-spacing:.3px;transition:transform .1s,opacity .15s;-webkit-tap-highlight-color:transparent;margin-top:4px}
+.pdv-finalize-btn:not(:disabled):active{transform:scale(.97)}
+.pdv-finalize-btn:disabled{opacity:.45;cursor:not-allowed}
+
+/* BUTTONS EXTRA */
+.btn-add-debt{background:#ff9f1c22;border:1px solid #ff9f1c66;border-radius:10px;padding:8px 16px;color:#ff9f1c;font-weight:700;cursor:pointer;font-size:13px;font-family:inherit}
+.btn-add-debt:hover{background:#ff9f1c33}
+.btn-warning{background:linear-gradient(135deg,#ff9f1c,#e67e00);border:none;border-radius:10px;padding:10px 20px;color:#000;font-weight:700;cursor:pointer;font-size:14px;font-family:inherit}
+.btn-whatsapp{background:linear-gradient(135deg,#25d366,#128c7e);border:none;border-radius:10px;padding:8px 14px;color:#fff;font-weight:700;cursor:pointer;font-size:13px;font-family:inherit}
+.btn-danger-owner{background:#ff3b5c22;border:2px solid #ff3b5c66;border-radius:10px;padding:10px 20px;color:#ff3b5c;font-weight:700;cursor:pointer;font-size:13px;font-family:inherit}
+.btn-danger-owner:hover{background:#ff3b5c33}
+.btn-zerar{border-color:#ff3b5c;font-size:14px;font-weight:800;letter-spacing:.5px}
+
+/* AUDIT LOG */
+.log-row{display:flex;align-items:flex-start;gap:14px;padding:10px 0;border-bottom:1px solid #0d1117}
+.log-row:last-child{border-bottom:none}
+
+/* SCROLLBAR */
+::-webkit-scrollbar{width:6px}
+::-webkit-scrollbar-track{background:#040c18}
+::-webkit-scrollbar-thumb{background:#132254;border-radius:3px}
+
+/* ── DASHBOARD NOVO ────────────────────────────────── */
+.dash-metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px}
+.metric-card{background:#0a1628;border-radius:16px;padding:16px 14px;display:flex;align-items:center;gap:12px;border:1px solid #132254;transition:.2s}
+.metric-card.gold{border-color:#D4AF3744}
+.metric-card.blue{border-color:#1d4ed844}
+.metric-card.teal{border-color:#00d4aa44}
+.metric-card.green{border-color:#00d4aa66}
+.metric-card.red{border-color:#ff3b5c44}
+.metric-icon{font-size:28px;flex-shrink:0}
+.metric-body{flex:1;min-width:0}
+.metric-label{font-size:11px;color:#2a5298;font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+.metric-value{font-size:18px;font-weight:800;color:#e8f0ff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.metric-card.gold .metric-value{color:#D4AF37}
+.metric-card.green .metric-value{color:#00d4aa}
+.metric-card.red .metric-value{color:#ff3b5c}
+.metric-sub{font-size:11px;color:#2a5298;margin-top:2px}
+.dash-bottom{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px}
+.cash-status-pill{padding:6px 14px;border-radius:20px;font-size:12px;font-weight:700}
+.cash-status-pill.open{background:#00d4aa18;border:1px solid #00d4aa44;color:#00d4aa}
+.cash-status-pill.closed{background:#ff3b5c18;border:1px solid #ff3b5c44;color:#ff3b5c}
+.gold-alert{background:#D4AF3710;border:1px solid #D4AF3744;border-radius:12px;padding:10px 16px;margin-bottom:16px;font-size:13px;color:#D4AF37}
+.btn-dash-link{background:none;border:none;color:#D4AF37;font-size:12px;font-weight:700;cursor:pointer;padding:10px 0 0;font-family:inherit;width:100%;text-align:left}
+.btn-dash-link:hover{color:#f0d060}
+.btn-dash-relatorios{display:block;width:100%;margin-top:14px;padding:12px 16px;background:#D4AF3714;border:1px solid #D4AF3744;border-radius:12px;color:#D4AF37;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;text-align:center;transition:background .15s,transform .1s,opacity .1s;-webkit-tap-highlight-color:transparent}
+.btn-dash-relatorios:hover{background:#D4AF3728;border-color:#D4AF3788}
+.btn-dash-relatorios:active{background:#D4AF3740;transform:scale(.97);opacity:.85}
+.gold-text{color:#D4AF37}
+
+/* ── CLIENTS MELHORADOS ─────────────────────────────── */
+.btn-icon-gold{background:#D4AF3718;border:1px solid #D4AF3744;border-radius:8px;padding:6px 8px;cursor:pointer;font-size:14px;transition:.15s}
+.btn-icon-gold:hover{background:#D4AF3733}
+.btn-ajuste-full{width:100%;margin-top:10px;padding:8px;background:#D4AF3714;border:1px solid #D4AF3733;border-radius:10px;color:#D4AF37;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;transition:.15s}
+.btn-ajuste-full:hover{background:#D4AF3728}
+
+/* ── AJUSTE SALDO MODAL ─────────────────────────────── */
+.saldo-atual-box{background:#040c18;border:1px solid #132254;border-radius:12px;padding:14px 18px;display:flex;justify-content:space-between;align-items:center}
+.btn-gold{background:linear-gradient(135deg,#D4AF37,#a07d1c);border:none;border-radius:10px;padding:10px 24px;color:#000;font-weight:800;cursor:pointer;font-size:14px;font-family:inherit}
+.btn-gold:hover{background:linear-gradient(135deg,#e8c84a,#c09a30)}
+
+/* MOBILE */
+@media(max-width:768px){
+  .sidebar{display:none}
+  .main-area{margin-left:0;padding:16px 14px 90px}
+  .bottom-nav{display:flex!important}
+  .sale-grid,.two-col,.cards-grid{grid-template-columns:1fr}
+  .cards-grid{grid-template-columns:1fr 1fr}
+  .dash-metrics{grid-template-columns:1fr 1fr}
+  .dash-bottom{grid-template-columns:1fr}
+  .page-header{flex-direction:column;align-items:flex-start;gap:8px}
+  .period-btns{gap:6px}
+  .period-btn{padding:6px 10px;font-size:12px}
+  .cash-stats{grid-template-columns:1fr 1fr 1fr}
+  .prod-list{max-height:250px}
+  .toasts{right:10px;left:10px}
+  .toast{min-width:unset}
+  .metric-card{padding:12px 10px;gap:8px}
+  .metric-icon{font-size:22px}
+  .metric-value{font-size:15px}
+}
+
+/* BOTTOM NAV (mobile only) */
+.bottom-nav{
+  display:none;
+  position:fixed;bottom:0;left:0;right:0;
+  background:#060e1a;border-top:1px solid #0f2040;
+  z-index:200;padding:8px 0 10px;
+  overflow-x:auto;
+  -webkit-overflow-scrolling:touch;
+}
+.bottom-nav-inner{
+  display:flex;align-items:center;gap:0;
+  min-width:max-content;padding:0 6px;
+}
+.bnav-item{
+  display:flex;flex-direction:column;align-items:center;gap:3px;
+  padding:6px 10px;border-radius:10px;cursor:pointer;
+  color:#2a5298;font-size:10px;font-weight:600;
+  min-width:58px;position:relative;border:none;background:none;font-family:inherit;
+  transition:.15s;
+}
+.bnav-item.active{color:#60a5fa;background:#1d4ed822}
+.bnav-icon{font-size:20px;line-height:1}
+.bnav-badge{position:absolute;top:4px;right:8px;background:#ff9f1c;color:#000;border-radius:50%;width:16px;height:16px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800}
+.bnav-dot{position:absolute;top:6px;right:10px;width:7px;height:7px;border-radius:50%}
+.bnav-dot.green{background:#00d4aa;box-shadow:0 0 5px #00d4aa}
+.bnav-dot.red{background:#ff3b5c}
+</style>
+</html>
