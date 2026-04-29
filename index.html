@@ -694,13 +694,13 @@ window.filterProducts = (q) => {
 };
 
 function renderProductList(prods) {
-  if (prods.length === 0) return '<p class="muted" style="padding:20px;text-align:center">Nenhum produto encontrado.</p>';
+  if (!prods || prods.length === 0) return '<p class="muted" style="padding:20px;text-align:center">Nenhum produto encontrado.</p>';
   
   return prods.map(p => `
-    <div class="prod-item-compact" onclick="addToCart('${p.id}')" style="display:flex; justify-content:space-between; align-items:center; padding:12px 16px; border-bottom:1px solid #1a2a40; cursor:pointer; background: #0d1b2a; margin-bottom: 2px; border-radius: 6px;">
+    <div class="prod-item-compact" onclick="addToCart('${p.id}')" style="display:flex; justify-content:space-between; align-items:center; padding:12px; border-bottom:1px solid #1a2a40; cursor:pointer; background:#0d1b2a; margin-bottom:2px; border-radius:6px;">
       <div style="flex:1">
-        <div style="font-weight:bold; color:#e8f0ff; font-size:14px; text-transform: uppercase;">${p.name}</div>
-        <div style="font-size:11px; color:#5c7fa3;">${p.category || 'Geral'} • ${p.brand || ''}</div>
+        <div style="font-weight:bold; color:#e8f0ff; font-size:14px; text-transform:uppercase;">${p.name}</div>
+        <div style="font-size:11px; color:#5c7fa3;">${p.category || 'Geral'}</div>
       </div>
       <div style="text-align:right">
         <div style="color:#D4AF37; font-weight:bold; font-size:15px;">${fmt(p.price)}</div>
@@ -709,7 +709,6 @@ function renderProductList(prods) {
     </div>
   `).join('');
 }
-
 
 let cart = [];
 let isFiado = false;
